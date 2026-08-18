@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Capacitor } from '@capacitor/core'
 import './styles.css'
 
 const STORAGE_PREFIX = 'parking-assist-records:'
@@ -212,6 +213,9 @@ function App() {
   }, [toast])
 
   useEffect(() => {
+    // Native Android builds use the bundled files directly. Keeping a Service
+    // Worker there can make an app update continue serving the previous bundle.
+    if (Capacitor.isNativePlatform()) return
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {})
   }, [])
 

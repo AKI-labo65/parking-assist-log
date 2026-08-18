@@ -47,6 +47,8 @@ npm run preview
     └── styles.css             # モバイル優先のUIスタイル
 ```
 
+Android版では、アプリ更新時に古いWebViewのService Workerキャッシュを削除してから新しい画面を読み込みます。記録本体のlocalStorageは削除しません。
+
 ## Android APK化
 
 このプロジェクトはCapacitorでAndroidアプリとしてパッケージできます。Android Studio、Android SDK、JDKがインストール済みの環境で実行してください。
