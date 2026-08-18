@@ -261,13 +261,15 @@ function App() {
   }
 
   const generateLineText = () => {
-    const text = [...records].sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt)).map((record) => {
-      const elapsedText = record.issuedAt ? `証明書発行${getElapsedSeconds(record, now)}秒${formatTime(record.issuedAt)}` : `証明書発行できず${formatTime(record.startedAt)}`
-      const settleText = record.settledAt ? `証明書発行${formatTime(record.settledAt)}…精算` : '精算時間不明'
+    const recordsText = [...records].sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt)).map((record) => {
+      const elapsedText = record.issuedAt ? `駐車→証明書発行${getElapsedSeconds(record, now)}秒` : '駐車→証明書発行できず'
+      const issuedText = record.issuedAt ? `${formatTime(record.issuedAt).replace(':', '：')}…証明書発行` : `${formatTime(record.startedAt).replace(':', '：')}…証明書発行できず`
+      const settledText = record.settledAt ? `${formatTime(record.settledAt).replace(':', '：')}…精算` : '精算時間不明'
       const noteText = getNotes(record) ? `＊${getNotes(record)}` : ''
-      return `・駐車位置番号:${record.spot}番駐車→${elapsedText}…${settleText}${noteText}`
-    }).join('\n')
-    setLineText(text || '本日の記録はありません。')
+      return [`・駐車位置番号:${record.spot}番`, elapsedText, issuedText, `${settledText}${noteText}`].join('\n')
+    }).join('\n\n')
+    const reportHeader = ['【名東本通店】', 'お疲れ様です。', '1分30秒以内の件ですが問題なく発行されております。'].join('\n')
+    setLineText(recordsText ? `${reportHeader}\n\n${recordsText}` : '本日の記録はありません。')
     notify('LINE用テキストを生成しました')
   }
 
