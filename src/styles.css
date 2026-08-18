@@ -38,7 +38,7 @@ button:disabled { cursor: not-allowed; }
 .help-button { border: 2px solid var(--navy); }
 .help-button:hover, .icon-button:hover { background: #edf2fa; }
 
-.tab-nav { display: grid; grid-template-columns: repeat(3, 1fr); max-width: 860px; margin: 0 auto; background: var(--surface); border-bottom: 1px solid var(--line); }
+.tab-nav { display: grid; grid-template-columns: repeat(4, 1fr); max-width: 860px; margin: 0 auto; background: var(--surface); border-bottom: 1px solid var(--line); }
 .tab-nav button { min-height: 55px; border: 0; border-bottom: 4px solid transparent; background: transparent; color: var(--muted); font-weight: 800; font-size: 15px; padding: 0 8px; position: relative; }
 .tab-nav button.active { color: var(--orange); border-bottom-color: var(--orange); }
 .tab-count { min-width: 21px; height: 21px; padding: 0 6px; margin-left: 6px; border-radius: 99px; display: inline-grid; place-items: center; background: var(--orange); color: white; font-size: 12px; vertical-align: 1px; }
@@ -136,6 +136,63 @@ button:disabled { cursor: not-allowed; }
 .copy-button { min-height: 35px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; color: #167145; background: #e8f7ed; font-size: 12px; }
 .line-output textarea { width: 100%; resize: vertical; min-height: 132px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; color: var(--ink); font-size: 13px; line-height: 1.8; }
 
+.work-rule-banner { margin: 8px 0 15px; display: flex; align-items: flex-start; gap: 10px; border: 1px solid #d7e1f1; border-radius: 12px; background: #f0f5fc; color: var(--blue-text); padding: 12px 14px; font-size: 12px; line-height: 1.55; }
+.work-rule-banner.restart { border-color: #f2d890; background: #fffaf0; color: var(--amber-text); }
+.work-rule-banner strong { font-size: 13px; }
+.work-rule-banner .tip-icon { background: #b9d0f5; color: var(--blue-text); }
+.work-rule-banner.restart .tip-icon { background: #f6c848; color: #6b4b00; }
+.work-store-list { display: grid; gap: 12px; }
+.work-store-card, .work-schedule-card { padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: var(--shadow); }
+.work-store-card.is-started { border-color: #b9d2f2; }
+.work-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.work-card-heading > div { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.work-card-heading h2 { margin: 0; color: var(--navy); font-size: 19px; letter-spacing: -.04em; }
+.work-card-heading > div > div > span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+.work-step { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; background: var(--navy); color: white; font-weight: 900; }
+.work-main-button { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1.5px solid var(--orange); border-radius: 10px; background: #fff7f3; color: var(--orange-dark); font-size: 15px; font-weight: 900; }
+.work-main-button:hover:not(:disabled) { background: #ffeadf; }
+.work-main-button.completed { border-color: #bfe6ce; background: #effaf2; color: var(--mint-text); }
+.work-main-button:disabled, .work-schedule-button:disabled { cursor: default; }
+.work-details { margin-top: 14px; padding-top: 13px; border-top: 1px solid #edf0f5; }
+.work-detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; }
+.work-field { display: block; color: var(--navy); font-size: 11px; font-weight: 900; }
+.work-field > div { display: flex; align-items: center; margin-top: 5px; }
+.work-field input { width: 100%; min-width: 0; min-height: 40px; padding: 6px 9px; border: 1px solid #b9c5d6; border-radius: 8px 0 0 8px; background: white; color: var(--ink); font-size: 15px; font-weight: 800; outline: 0; }
+.work-field input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px #ffe7dc; }
+.work-field small { min-height: 40px; display: grid; place-items: center; padding: 0 9px; border: 1px solid #b9c5d6; border-left: 0; border-radius: 0 8px 8px 0; background: #f5f7fb; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.work-choice > span { display: block; color: var(--navy); font-size: 11px; font-weight: 900; }
+.work-choice > div { display: flex; gap: 6px; margin-top: 5px; }
+.work-choice button { flex: 1; min-height: 40px; padding: 0 8px; border: 1px solid #b9c5d6; border-radius: 8px; background: white; color: var(--navy); font-size: 12px; font-weight: 900; }
+.work-choice button.selected { border-color: var(--orange); background: #fff3ed; color: var(--orange-dark); }
+.work-restart, .work-greeting { margin-top: 13px; padding: 12px; border: 1px solid #dce4f0; border-radius: 11px; background: #f8faff; }
+.work-restart.complete { border-color: #c8e9d5; background: #f3fbf5; }
+.work-greeting { border-color: #c8e9d5; background: #f3fbf5; }
+.work-subheading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+.work-subheading strong { color: var(--navy); font-size: 13px; }
+.work-subheading span { color: var(--muted); font-size: 10px; font-weight: 800; }
+.work-muted { margin: 0; color: var(--muted); font-size: 11px; }
+.work-wide-button { width: 100%; min-height: 42px; }
+.work-restart-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: 10px; }
+.work-restart-fields .work-wide-button { grid-column: 1 / -1; }
+.work-greeting .work-field { margin-top: 10px; max-width: 180px; }
+.work-schedule-card { margin-top: 12px; }
+.work-heading { margin: 0 0 12px; }
+.work-heading h2 { margin: 0; color: var(--navy); font-size: 19px; letter-spacing: -.04em; }
+.work-heading p { margin-top: 5px; }
+.work-schedule-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.work-schedule-button { min-height: 94px; padding: 9px 7px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid #b8c6dd; border-radius: 9px; background: white; color: var(--navy); text-align: center; }
+.work-schedule-button:hover:not(:disabled) { border-color: var(--orange); background: #fff7f3; }
+.work-schedule-button.completed { border-color: #bfe6ce; background: #effaf2; color: var(--mint-text); }
+.work-schedule-button > span { min-height: 20px; display: grid; place-items: center; }
+.schedule-time { color: var(--orange); font-size: 13px; font-weight: 900; }
+.work-schedule-button strong { font-size: 12px; }
+.work-schedule-button small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.work-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 14px; padding-top: 13px; border-top: 1px solid #edf0f5; }
+.work-memo-label { margin-top: 13px; }
+.work-line-tools { margin-top: 12px; }
+.work-line-output { border-color: #c8e9d5; }
+.restart-day-label { color: var(--amber-text); }
+
 .app-footer { max-width: 860px; margin: auto; padding: 0 20px 22px; color: #8a96a9; text-align: center; font-size: 11px; }
 .toast { position: fixed; z-index: 50; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 16px; border-radius: 99px; background: var(--navy-deep); color: white; box-shadow: 0 10px 25px rgba(8,31,72,.25); font-size: 13px; font-weight: 800; text-align: center; animation: toast-in .2s ease-out; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
@@ -168,7 +225,7 @@ button:disabled { cursor: not-allowed; }
   .brand-mark { font-size: 19px; }
   .header-date { font-size: 12px; margin-left: auto; margin-right: 10px; }
   .help-button { width: 34px; height: 34px; font-size: 17px; }
-  .tab-nav button { min-height: 52px; font-size: 12px; }
+  .tab-nav button { min-height: 52px; padding: 0 3px; font-size: 11px; }
   .main-content { padding-left: 14px; padding-right: 14px; }
   .day-banner { min-height: 47px; }
   .section-heading { align-items: start; margin-top: 10px; }
@@ -192,6 +249,13 @@ button:disabled { cursor: not-allowed; }
   .action-button { min-width: 75px; padding: 0 9px; }
   .line-tools { align-items: stretch; flex-direction: column; }
   .line-button { width: 100%; }
+  .work-card-heading h2 { font-size: 17px; }
+  .work-detail-grid { grid-template-columns: 1fr; gap: 10px; }
+  .work-restart-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .work-schedule-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .work-schedule-button { min-height: 82px; }
+  .work-counts { grid-template-columns: 1fr 1fr; }
+  .work-counts .work-field:first-child { grid-column: 1 / -1; }
   .note-options { gap: 6px; }
   .note-option { font-size: 11px; min-height: 48px; }
   .modal-backdrop { padding: 0; }
