@@ -279,6 +279,15 @@ function Icon({ name, size = 20 }) {
   return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
 
+function NavigationTab({ tab, activeView, onSelect, mobile = false }) {
+  const iconName = { record: 'note', issued: 'check', history: 'clock' }[tab.id]
+  return <button type="button" className={`${activeView === tab.id ? 'active ' : ''}${mobile ? 'mobile-tab' : ''}`} onClick={() => onSelect(tab.id)} aria-current={activeView === tab.id ? 'page' : undefined}>
+    {mobile && <Icon name={iconName} size={18} />}
+    <span>{tab.label}</span>
+    {tab.count > 0 && <span className={mobile ? 'mobile-tab-count' : 'tab-count'}>{tab.count}</span>}
+  </button>
+}
+
 function StatusBadge({ status, children }) {
   const meta = STATUS[status] || STATUS.parking
   return <span className={`status-badge ${meta.tone}`}>{children || meta.label}</span>
@@ -615,12 +624,13 @@ function App() {
     { id: 'issued', label: '発行済み・精算待ち', count: issuedRecords.length },
     { id: 'history', label: '履歴', count: settledRecords.length },
   ]
+  const primaryTabItems = tabItems.filter((tab) => tab.id !== 'work')
 
   return <div className="app-shell">
     <header className="app-header"><div className="brand-mark"><span className="brand-dot" /><span>精算機補助</span></div><div className="header-date">{formatDateLabel()}</div><button type="button" className="help-button" aria-label="このアプリについて" onClick={() => notify('番号が分からないときは「番号未入力で開始」→発行時に入力してください')} >?</button></header>
-    <nav className="tab-nav" aria-label="メインメニュー">{tabItems.map((tab) => <button key={tab.id} type="button" className={activeView === tab.id ? 'active' : ''} onClick={() => setActiveView(tab.id)}>{tab.label}{tab.count > 0 && <span className="tab-count">{tab.count}</span>}</button>)}</nav>
+    <nav className="tab-nav" aria-label="メインメニュー">{tabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={setActiveView} />)}</nav>
     <main className="main-content">
-      <div className="day-banner"><span><Icon name="clock" size={18} />本日 {formatDateLabel()}</span><button type="button" onClick={() => { setRecords(loadRecords(todayKey)); setWorkReport(loadWorkReport(todayKey)); notify('保存データを読み込みました') }}><Icon name="refresh" size={17} />更新</button></div>
+      <div className="day-banner"><span><Icon name="clock" size={18} />本日 {formatDateLabel()}</span><div className="day-banner-actions"><button type="button" onClick={() => { setRecords(loadRecords(todayKey)); setWorkReport(loadWorkReport(todayKey)); notify('保存データを読み込みました') }}><Icon name="refresh" size={17} />更新</button><button type="button" className={`secondary-nav-button ${activeView === 'work' ? 'active' : ''}`} onClick={() => setActiveView('work')}><Icon name="note" size={15} />勤務報告</button></div></div>
 
       {activeView === 'record' && <section className="view-section" aria-labelledby="record-heading">
         <div className="section-heading"><div><h1 id="record-heading">駐車番号を選択</h1><p>番号が分かるときはタップ。分からないときは発行時に入力できます。</p></div><span className="section-count">対応中 {parkingRecords.length}件</span></div>
@@ -637,6 +647,7 @@ function App() {
       {activeView === 'history' && <section className="view-section" aria-labelledby="history-heading"><div className="section-heading"><div><h1 id="history-heading">本日の履歴</h1><p>精算済みの記録を確認・修正できます。</p></div><span className="section-count">{settledRecords.length}件</span></div><div className="line-tools"><div><strong>LINE報告</strong><span>90秒超または例外メモのある記録だけをまとめます。</span></div><button type="button" className="line-button" onClick={generateLineText}><span className="line-mark">LINE</span>LINE用テキストを生成</button></div>{lineText && <div className="line-output"><div className="line-output-heading"><strong>生成されたテキスト</strong><button type="button" className="copy-button" onClick={copyLineText}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="LINE用テキスト" /></div>}{settledRecords.length === 0 ? <EmptyState title="完了した記録はありません" detail="精算ボタンを押した記録がここに表示されます。" /> : <div className="record-list history-list">{settledRecords.map((record) => <RecordRow key={record.id} record={record} now={now} onNote={setNoteRecord} onEdit={setEditRecord} onDelete={deleteRecord} />)}</div>}</section>}
     </main>
     <footer className="app-footer">端末内に自動保存中 · {todayKey}</footer>
+    <nav className="mobile-bottom-nav" aria-label="主要メニュー">{primaryTabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={setActiveView} mobile />)}</nav>
     {noteRecord && <NoteSheet record={records.find((record) => record.id === noteRecord.id) || noteRecord} onSave={saveNotes} onClose={() => setNoteRecord(null)} />}
     {issueRecord && <SpotConfirmSheet record={records.find((record) => record.id === issueRecord.id) || issueRecord} onConfirm={confirmCertificateIssue} onClose={() => setIssueRecord(null)} />}
     {editRecord && <EditModal record={records.find((record) => record.id === editRecord.id) || editRecord} onSave={saveEdit} onDelete={deleteRecord} onClose={() => setEditRecord(null)} />}
