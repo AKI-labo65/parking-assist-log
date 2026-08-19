@@ -395,13 +395,13 @@ function SpotConfirmSheet({ record, onConfirm, onClose }) {
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="bottom-sheet spot-confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="spot-confirm-title">
       <div className="sheet-handle" />
-      <div className="sheet-heading"><div><span className="eyebrow">証明書発行前の確認</span><h2 id="spot-confirm-title">駐車番号を入力</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="閉じる"><Icon name="close" /></button></div>
-      <p className="spot-confirm-help">利用者さまに駐車位置番号を確認して、ここへ入力してください。開始時の番号が違っていても修正できます。</p>
+      <div className="sheet-heading"><div><span className="eyebrow">証明書発行と同時に確定</span><h2 id="spot-confirm-title">番号を入力して発行</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="閉じる"><Icon name="close" /></button></div>
+      <p className="spot-confirm-help">利用者さまに駐車位置番号を確認し、入力してから発行を確定してください。開始時の番号が違っていても修正できます。</p>
       {hasKnownSpot && <p className="spot-confirm-started">開始時の番号：<strong>{formatSpotLabel(initialSpot)}</strong></p>}
-      <label className="field-label" htmlFor="certificate-spot">駐車位置番号（数字・英字）</label>
+      <label className="field-label" htmlFor="certificate-spot">駐車位置番号（入力必須・数字／英字）</label>
       <input id="certificate-spot" className="text-input spot-confirm-input" type="text" inputMode="numeric" autoFocus value={spot} onChange={(event) => setSpot(event.target.value)} placeholder="例：17" />
       <div className="spot-quick-grid" aria-label="駐車位置番号の候補">{quickSpots.map((quickSpot) => <button key={quickSpot} type="button" className={spot === quickSpot ? 'selected' : ''} onClick={() => setSpot(quickSpot)}>{quickSpot}</button>)}</div>
-      <div className="spot-confirm-actions"><button type="button" className="secondary-button" onClick={() => onConfirm(record.id, '')}>番号未入力のまま発行</button><button type="button" className="primary-button" onClick={() => onConfirm(record.id, spot)}>{spot ? `${formatSpotLabel(spot)}で発行` : '番号を入力して発行'}</button></div>
+      <div className="spot-confirm-actions"><button type="button" className="primary-button" disabled={!normalizeSpot(spot)} onClick={() => onConfirm(record.id, spot)}>{spot ? `${formatSpotLabel(spot)}で発行確定` : '番号を入力してください'}</button><button type="button" className="exception-button" onClick={() => onConfirm(record.id, '')}>番号不明のまま発行（例外）</button></div>
     </section>
   </div>
 }
@@ -607,7 +607,7 @@ function App() {
 
       {activeView === 'record' && <section className="view-section" aria-labelledby="record-heading">
         <div className="section-heading"><div><h1 id="record-heading">駐車番号を選択</h1><p>番号が分かるときはタップ。分からないときは発行時に入力できます。</p></div><span className="section-count">対応中 {parkingRecords.length}件</span></div>
-        {parkingRecords.length > 0 && <div className="active-panel"><div className="active-panel-heading"><span className="live-dot" />タイマー動作中（番号を大きく表示）</div>{parkingRecords.map((record) => <div className="active-record" key={record.id}><div className="active-summary"><strong className={!getRecordSpot(record) ? 'unknown' : ''}>{getRecordSpotLabel(record)}</strong><div><StatusBadge status="parking" /><div className="active-time">{getElapsedSeconds(record, now)}<small>秒</small><span>{formatDuration(getElapsedSeconds(record, now))}</span></div></div></div><div className="active-actions"><button type="button" className="primary-button issue-button" onClick={() => issueCertificate(record)}><Icon name="check" size={20} />証明書発行</button><button type="button" className="secondary-button note-button" onClick={() => setNoteRecord(record)}><Icon name="note" size={18} />メモ</button></div></div>)}</div>}
+        {parkingRecords.length > 0 && <div className="active-panel"><div className="active-panel-heading"><span className="live-dot" />タイマー動作中（発行時に番号入力）</div>{parkingRecords.map((record) => <div className="active-record" key={record.id}><div className="active-summary"><strong className={!getRecordSpot(record) ? 'unknown' : ''}>{getRecordSpotLabel(record)}</strong><div><StatusBadge status="parking" /><div className="active-time">{getElapsedSeconds(record, now)}<small>秒</small><span>{formatDuration(getElapsedSeconds(record, now))}</span></div></div></div><div className="active-actions"><button type="button" className="primary-button issue-button" onClick={() => issueCertificate(record)}><Icon name="check" size={20} /><span>証明書発行＋番号入力</span></button><button type="button" className="secondary-button note-button" onClick={() => setNoteRecord(record)}><Icon name="note" size={18} />メモ</button></div></div>)}</div>}
         <div className="parking-area"><div className="area-heading"><h2>駐車位置番号</h2><span>1〜21</span></div><ParkingGrid records={records} onStart={startRecord} /><button type="button" className="unknown-start-button" onClick={startUnknownRecord}><Icon name="plus" size={20} /><span><strong>番号未入力でタイマー開始</strong><small>駐車証明発行時に番号を入力</small></span></button></div>
         {parkingRecords.length === 0 && <EmptyState title="タイマー動作中の車両はありません" detail="車が駐車したら、番号ボタンまたは番号未入力で開始を押してください。" />}
         <div className="quick-tip"><span className="tip-icon">!</span><span><strong>90秒以内の発行が正常</strong><br />90秒を超えると記録に「90秒超」と表示されます。</span></div>

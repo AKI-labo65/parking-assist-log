@@ -74,7 +74,7 @@ button:disabled { cursor: not-allowed; }
 .primary-button { padding: 0 18px; background: var(--orange); color: white; box-shadow: 0 5px 0 var(--orange-dark); }
 .primary-button:hover, .action-button:hover, .line-button:hover { transform: translateY(-1px); }
 .primary-button:active, .action-button:active { transform: translateY(2px); box-shadow: none; }
-.issue-button { display: flex; justify-content: center; align-items: center; gap: 7px; min-height: 52px; font-size: 16px; }
+.issue-button { display: flex; justify-content: center; align-items: center; gap: 7px; min-height: 52px; font-size: 15px; line-height: 1.25; }
 .secondary-button { padding: 0 18px; background: #edf2fa; border: 1px solid #dce4f0; color: var(--navy); }
 .secondary-button:hover { background: #e2eaf6; }
 .note-button { min-height: 38px; color: #c8d6ef; background: transparent; border-color: rgba(255,255,255,.24); }
@@ -226,8 +226,11 @@ button:disabled { cursor: not-allowed; }
 .spot-quick-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
 .spot-quick-grid button { min-height: 38px; border: 1px solid #b8c6dd; border-radius: 8px; background: white; color: var(--navy); font-size: 14px; font-weight: 900; }
 .spot-quick-grid button:hover, .spot-quick-grid button.selected { border-color: var(--orange); background: #fff3ed; color: var(--orange-dark); }
-.spot-confirm-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 8px; margin-top: 15px; }
+.spot-confirm-actions { display: flex; flex-direction: column; gap: 5px; margin-top: 15px; }
 .spot-confirm-actions > button { min-height: 52px; padding: 0 10px; font-size: 13px; }
+.spot-confirm-actions .primary-button:disabled { opacity: .45; box-shadow: none; cursor: not-allowed; }
+.exception-button { min-height: 34px !important; border: 0; background: transparent; color: var(--muted); font-size: 11px !important; font-weight: 800; }
+.exception-button:hover { color: var(--amber-text); text-decoration: underline; }
 .note-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 17px; }
 .note-options.compact { grid-template-columns: repeat(2, 1fr); margin-top: 8px; }
 .note-option { min-height: 50px; padding: 5px 7px; border: 1px solid #b8c6dd; border-radius: 9px; background: white; color: var(--navy); display: flex; align-items: center; justify-content: center; gap: 4px; text-align: center; font-size: 12px; font-weight: 900; }
