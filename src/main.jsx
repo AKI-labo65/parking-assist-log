@@ -585,7 +585,8 @@ function App() {
     setEditRecord(null)
     setNoteRecord(null)
     setIssueRecord(null)
-    notify('記録を削除しました')
+    setLineText('')
+    notify('記録を削除しました。LINE報告を再生成してください')
   }
 
   const generateLineText = () => {
