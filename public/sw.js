@@ -1,4 +1,4 @@
-const CACHE_NAME = 'parking-assist-v12'
+const CACHE_NAME = 'parking-assist-v13'
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg']
 
 self.addEventListener('install', (event) => {

@@ -94,6 +94,8 @@ button:disabled { cursor: not-allowed; }
 .spot-button strong { font-size: clamp(20px, 5.2vw, 27px); line-height: 1; font-variant-numeric: tabular-nums; }
 .spot-button small { color: var(--muted); font-size: 9px; font-weight: 800; }
 .spot-button:not(:disabled):hover { border-color: var(--orange); background: #fff7f3; }
+.spot-button.active:hover { border-color: #ff9f77; background: #e94d18; }
+.spot-button.waiting:hover { border-color: #6e9fe8; background: #dbe8fc; }
 .spot-button.active { border-color: var(--orange); background: var(--orange); color: white; }
 .spot-button.active small { color: white; }
 .spot-button.waiting { border-color: #a9c2ea; background: var(--blue-pale); color: var(--blue-text); }
