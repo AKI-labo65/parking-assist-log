@@ -71,11 +71,6 @@ function getNotes(record) {
   return [...(record.notePresets || []), record.memo?.trim()].filter(Boolean).join('、')
 }
 
-function getResultLabel(record, now) {
-  if (getElapsedSeconds(record, now) > 90) return '90秒超'
-  return '正常'
-}
-
 function makeId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -372,7 +367,7 @@ function RecordRow({ record, now, action, actionLabel, actionTone = 'primary', o
     <div className="row-main">
       <div className={`spot-number ${getRecordSpot(record) ? '' : 'unknown'}`}><span>{getRecordSpotLabel(record)}</span></div>
       <div className="row-data">
-        <div className="row-topline"><StatusBadge status={record.status} /><span className={`result-label ${overLimit ? 'warning' : 'normal'}`}>{getResultLabel(record, now)}</span></div>
+        <div className="row-topline"><StatusBadge status={record.status} />{overLimit && <span className="result-label warning">90秒超</span>}</div>
         <div className="metric-line"><span><small>経過</small><strong>{elapsed}秒</strong></span><span><small>証明書発行</small><strong>{formatTime(record.issuedAt)}</strong></span>{record.status !== 'parking' && <span><small>精算</small><strong>{formatTime(record.settledAt)}</strong></span>}</div>
         {notes && <div className="row-note"><Icon name="note" size={15} />{notes}</div>}
       </div>
@@ -640,7 +635,6 @@ function App() {
         {parkingRecords.length > 0 && <div className="active-panel"><div className="active-panel-heading"><span className="live-dot" />タイマー動作中（発行時に番号入力）</div>{parkingRecords.map((record) => <div className="active-record" key={record.id}><div className="active-summary"><strong className={!getRecordSpot(record) ? 'unknown' : ''}>{getRecordSpotLabel(record)}</strong><div><StatusBadge status="parking" /><div className="active-time">{getElapsedSeconds(record, now)}<small>秒</small><span>{formatDuration(getElapsedSeconds(record, now))}</span></div></div></div><div className="active-actions"><button type="button" className="primary-button issue-button" onClick={() => issueCertificate(record)}><Icon name="check" size={20} /><span>証明書発行＋番号入力</span></button><div className="active-more-actions"><button type="button" className="secondary-button note-button" onClick={() => setNoteRecord(record)}><Icon name="note" size={16} />メモ</button><button type="button" className="secondary-button note-button" onClick={() => setEditRecord(record)}><Icon name="edit" size={16} />編集</button><button type="button" className="secondary-button note-button danger" onClick={() => deleteRecord(record)}><Icon name="trash" size={16} />削除</button></div></div></div>)}</div>}
         <div className="parking-area"><div className="area-heading"><h2>駐車位置番号</h2><span>左 1〜8　右 21〜9</span></div><ParkingGrid records={records} onStart={startRecord} onOpenRecord={setEditRecord} /><button type="button" className="unknown-start-button" onClick={startUnknownRecord}><Icon name="plus" size={20} /><span><strong>番号未入力でタイマー開始</strong><small>駐車証明発行時に番号を入力</small></span></button></div>
         {parkingRecords.length === 0 && <EmptyState title="タイマー動作中の車両はありません" detail="車が駐車したら、番号ボタンまたは番号未入力で開始を押してください。" />}
-        <div className="quick-tip"><span className="tip-icon">!</span><span><strong>90秒以内の発行が正常</strong><br />90秒を超えると記録に「90秒超」と表示されます。</span></div>
       </section>}
 
       {activeView === 'work' && <WorkReportView report={workReport} restartDay={restartDay} lineText={workLineText} onStorePatch={updateWorkStore} onSchedulePatch={updateWorkSchedule} onNotify={notify} onGenerate={generateWorkLineText} onCopy={copyWorkLineText} />}

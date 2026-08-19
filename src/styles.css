@@ -106,8 +106,6 @@ button:disabled { cursor: not-allowed; }
 .unknown-start-button span { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
 .unknown-start-button strong { font-size: 14px; }
 .unknown-start-button small { margin-top: 2px; color: var(--muted); font-size: 10px; }
-.quick-tip { margin: 16px 0 0; display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f2d890; border-radius: 11px; background: #fffaf0; color: var(--amber-text); padding: 12px 14px; font-size: 12px; line-height: 1.55; }
-.quick-tip strong { font-size: 13px; }
 .tip-icon { width: 21px; height: 21px; border-radius: 50%; background: #f6c848; color: #6b4b00; display: grid; place-items: center; font-weight: 900; flex: 0 0 auto; }
 
 .record-list { display: grid; gap: 10px; }
@@ -126,7 +124,6 @@ button:disabled { cursor: not-allowed; }
 .status-badge.issued { background: var(--blue-pale); color: var(--blue-text); }
 .status-badge.settled { background: var(--mint); color: var(--mint-text); }
 .result-label { font-size: 11px; font-weight: 900; }
-.result-label.normal { color: var(--mint-text); }
 .result-label.warning { color: var(--amber-text); }
 .metric-line { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: baseline; }
 .metric-line span { display: flex; align-items: baseline; gap: 5px; min-width: 56px; }
