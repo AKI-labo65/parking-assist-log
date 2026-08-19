@@ -5,14 +5,16 @@ import './styles.css'
 
 const STORAGE_PREFIX = 'parking-assist-records:'
 const WORK_STORAGE_PREFIX = 'parking-assist-work:'
+const SETTINGS_STORAGE_KEY = 'parking-assist-settings'
 const COMMON_NOTES = ['サービス券1枚使用', '料金未発生', '操作ミス', '発行できず', '精算時間不明']
 const COMMUTE_OPTIONS = ['車', '電車']
-const RESTART_MESSAGES = ['只今から名東本通店の方に向かいます。', '現場離れます。']
-const COMMON_WORK_MESSAGES = ['西野と合流済み、現地にてオリエン完了しました。']
+const RESTART_MESSAGES = ['只今から次の店舗の方に向かいます。', '現場離れます。']
+const COMMON_WORK_MESSAGES = ['合流済み、現地にてオリエン完了しました。']
 const WORK_STORES = [
-  { id: 'sugiei', label: '杉栄店', arrivalText: '現着致しました。', hasCommute: true },
-  { id: 'meito', label: '名東本通店', arrivalText: 'ただいま、名東本通店到着しました。', hasCommute: false },
+  { id: 'storeA', defaultLabel: '店舗A', arrivalText: '現着致しました。', hasCommute: true },
+  { id: 'storeB', defaultLabel: '店舗B', arrivalText: 'ただいま、店舗Bに到着しました。', hasCommute: false },
 ]
+const DEFAULT_SETTINGS = { storeLabels: { storeA: '店舗A', storeB: '店舗B' } }
 const PARKING_SPOT_COLUMNS = [
   ['1', '2', '3', '4', '5', '6', '7', '8'],
   ['21', '20', '19', '18', '17', '16', '15', '14', '13', '12', '10', '9'],
@@ -121,6 +123,20 @@ function loadRecords(dateKey) {
   }
 }
 
+function loadSettings() {
+  try {
+    const value = localStorage.getItem(SETTINGS_STORAGE_KEY)
+    const parsed = value ? JSON.parse(value) : {}
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      storeLabels: { ...DEFAULT_SETTINGS.storeLabels, ...(parsed.storeLabels || {}) },
+    }
+  } catch {
+    return DEFAULT_SETTINGS
+  }
+}
+
 function createDefaultWorkReport() {
   const createStore = () => ({
     arrivalAt: null,
@@ -137,7 +153,7 @@ function createDefaultWorkReport() {
     serviceTickets: '20',
   })
   return {
-    stores: { sugiei: createStore(), meito: createStore() },
+    stores: Object.fromEntries(WORK_STORES.map(({ id }) => [id, createStore()])),
     schedule: {
       startedAt: null,
       breakAt: null,
@@ -157,10 +173,11 @@ function loadWorkReport(dateKey) {
   try {
     const value = localStorage.getItem(`${WORK_STORAGE_PREFIX}${dateKey}`)
     const parsed = value ? JSON.parse(value) : {}
+    const parsedStores = Object.values(parsed.stores || {})
     const report = {
       ...defaults,
       ...parsed,
-      stores: Object.fromEntries(WORK_STORES.map(({ id }) => [id, { ...defaults.stores[id], ...(parsed.stores?.[id] || {}) }])),
+      stores: Object.fromEntries(WORK_STORES.map(({ id }, index) => [id, { ...defaults.stores[id], ...(parsed.stores?.[id] || parsedStores[index] || {}) }])),
       schedule: { ...defaults.schedule, ...(parsed.schedule || {}) },
     }
     Object.values(report.stores).forEach((store) => {
@@ -184,14 +201,14 @@ function joinWorkSections(sections) {
   return sections.filter(Boolean).join('\n\n-----\n\n')
 }
 
-function buildWorkLineText(report) {
+function buildWorkLineText(report, storeConfigs) {
   const sections = []
-  const meito = report.stores.meito
+  const storeB = report.stores.storeB
 
   WORK_STORES.forEach((storeConfig) => {
     const store = report.stores[storeConfig.id]
     if (!store.arrivalAt && !store.restartStartedAt) return
-    const inspectionText = storeConfig.id === 'meito' ? `初期点検　${workValue(store.inspectionSeconds)}秒` : `初期点検...${workValue(store.inspectionSeconds)}秒`
+    const inspectionText = storeConfig.id === 'storeB' ? `初期点検　${workValue(store.inspectionSeconds)}秒` : `初期点検...${workValue(store.inspectionSeconds)}秒`
     sections.push([`【${storeConfig.label}】`, '', storeConfig.arrivalText, '', inspectionText].join('\n'))
   })
 
@@ -212,22 +229,23 @@ function buildWorkLineText(report) {
 
   if (report.schedule.extraMessage.trim()) sections.push(report.schedule.extraMessage.trim())
 
-  if (meito.greetingAt) {
+  if (storeB.greetingAt) {
     sections.push([
-      '【名東本通店】',
+      `【${storeConfigs.find((config) => config.id === 'storeB').label}】`,
       '店舗様へのご挨拶完了',
       '本日もよろしくお願いいたします。',
-      `サービス券　預かり${workValue(meito.serviceTickets)}枚`,
+      `サービス券　預かり${workValue(storeB.serviceTickets)}枚`,
     ].join('\n'))
   }
 
-  if (report.schedule.startedAt) sections.push(['【名東本通店】', '10:00配置つきました。', '業務開始いたします。'].join('\n'))
-  if (report.schedule.breakAt) sections.push(['【名東本通店】', '12:00になりましたので', '配置一時解除します。'].join('\n'))
-  if (report.schedule.resumedAt) sections.push(['【名東本通店】', '15:00配置つきました。', '業務再開いたします。'].join('\n'))
+  const storeBLabel = storeConfigs.find((config) => config.id === 'storeB').label
+  if (report.schedule.startedAt) sections.push([`【${storeBLabel}】`, '10:00配置つきました。', '業務開始いたします。'].join('\n'))
+  if (report.schedule.breakAt) sections.push([`【${storeBLabel}】`, '12:00になりましたので', '配置一時解除します。'].join('\n'))
+  if (report.schedule.resumedAt) sections.push([`【${storeBLabel}】`, '15:00配置つきました。', '業務再開いたします。'].join('\n'))
   if (report.schedule.endedAt) {
     const finishMemo = report.schedule.finishMemo.trim()
     sections.push([
-      '【名東本通店】',
+      `【${storeBLabel}】`,
       '18:00…配置解除,店舗挨拶完了',
       '',
       `店舗駐車券預り${workValue(report.schedule.parkingTickets)}枚`,
@@ -321,7 +339,7 @@ function WorkStoreCard({ config, data, restartDay, onPatch, onNotify }) {
   }
 
   return <article className={`work-store-card ${hasArrival ? 'is-started' : ''}`}>
-    <div className="work-card-heading"><div><span className="work-step">{config.id === 'sugiei' ? '1' : '2'}</span><div><h2>{config.label}</h2><span>{hasArrival ? `到着 ${formatTime(data.arrivalAt)}` : '未到着'}</span></div></div><StatusBadge status={hasArrival ? 'settled' : 'parking'}>{hasArrival ? '到着済み' : '待機中'}</StatusBadge></div>
+    <div className="work-card-heading"><div><span className="work-step">{config.id === 'storeA' ? '1' : '2'}</span><div><h2>{config.label}</h2><span>{hasArrival ? `到着 ${formatTime(data.arrivalAt)}` : '未到着'}</span></div></div><StatusBadge status={hasArrival ? 'settled' : 'parking'}>{hasArrival ? '到着済み' : '待機中'}</StatusBadge></div>
     <button type="button" className={`work-main-button ${hasArrival ? 'completed' : ''}`} disabled={hasArrival} onClick={markArrival}>{hasArrival ? <><Icon name="check" size={19} />到着を記録済み</> : <><Icon name="plus" size={19} />{config.label}に到着</>}</button>
     {hasArrival && <div className="work-details">
       <div className="work-detail-grid">
@@ -335,7 +353,7 @@ function WorkStoreCard({ config, data, restartDay, onPatch, onNotify }) {
           {hasRestartStarted && <><div className="work-restart-fields"><WorkNumberField label="再起動前" value={data.restartBeforeSeconds} suffix="秒" onChange={(value) => onPatch({ restartBeforeSeconds: value })} /><WorkNumberField label="再起動後" value={data.restartAfterSeconds} suffix="秒" onChange={(value) => onPatch({ restartAfterSeconds: value })} /><WorkNumberField label="QRリーダー" value={data.qrMinutes} suffix="分" onChange={(value) => onPatch({ qrMinutes: value })} /><WorkNumberField label="クレカ立ち上がり" value={data.creditMinutes} suffix="分" onChange={(value) => onPatch({ creditMinutes: value })} /><button type="button" className="primary-button work-wide-button" disabled={hasRestartCompleted} onClick={markRestartComplete}>{hasRestartCompleted ? <><Icon name="check" size={19} />復旧結果を記録済み</> : '復旧結果を記録'}</button></div><div className="work-message-options"><span>再起動後の一言（任意）</span><div>{RESTART_MESSAGES.map((message) => <button key={message} type="button" className={data.restartNote === message ? 'selected' : ''} onClick={() => onPatch({ restartNote: message })}>{message}</button>)}</div><input className="text-input" value={data.restartNote} onChange={(event) => onPatch({ restartNote: event.target.value })} placeholder="自由入力もできます" /></div></>}
         </>}
       </section>
-      {config.id === 'meito' && <section className="work-greeting"><div className="work-subheading"><strong>店舗挨拶・サービス券</strong><span>{data.greetingAt ? `完了 ${formatTime(data.greetingAt)}` : '未完了'}</span></div><button type="button" className="secondary-button work-wide-button" disabled={Boolean(data.greetingAt)} onClick={markGreeting}>{data.greetingAt ? '店舗挨拶を記録済み' : '店舗挨拶を記録'}</button>{data.greetingAt && <WorkNumberField label="サービス券預かり" value={data.serviceTickets} suffix="枚" onChange={(value) => onPatch({ serviceTickets: value })} />}</section>}
+      {config.id === 'storeB' && <section className="work-greeting"><div className="work-subheading"><strong>店舗挨拶・サービス券</strong><span>{data.greetingAt ? `完了 ${formatTime(data.greetingAt)}` : '未完了'}</span></div><button type="button" className="secondary-button work-wide-button" disabled={Boolean(data.greetingAt)} onClick={markGreeting}>{data.greetingAt ? '店舗挨拶を記録済み' : '店舗挨拶を記録'}</button>{data.greetingAt && <WorkNumberField label="サービス券預かり" value={data.serviceTickets} suffix="枚" onChange={(value) => onPatch({ serviceTickets: value })} />}</section>}
     </div>}
   </article>
 }
@@ -355,8 +373,31 @@ function WorkScheduleCard({ schedule, onPatch, onNotify }) {
   return <article className="work-schedule-card"><div className="section-heading work-heading"><div><h2>勤務時間</h2><p>現場で押した時刻を保存し、報告文に反映します。</p></div></div><div className="work-schedule-grid">{items.map((item) => <button key={item.key} type="button" className={`work-schedule-button ${schedule[item.key] ? 'completed' : ''}`} disabled={Boolean(schedule[item.key])} onClick={() => mark(item)}><span>{schedule[item.key] ? <Icon name="check" size={19} /> : <span className="schedule-time">{item.label.slice(0, 5)}</span>}</span><strong>{schedule[item.key] ? `${item.label} 済` : item.label}</strong><small>{schedule[item.key] ? `記録 ${formatTime(schedule[item.key])}` : item.detail}</small></button>)}</div><div className="work-counts"><WorkNumberField label="店舗駐車券預り" value={schedule.parkingTickets} suffix="枚" onChange={(value) => onPatch({ parkingTickets: value })} /><WorkNumberField label="お客様から返却" value={schedule.returnedTickets} suffix="枚" onChange={(value) => onPatch({ returnedTickets: value })} /><WorkNumberField label="お客様へ配布" value={schedule.distributedTickets} suffix="枚" onChange={(value) => onPatch({ distributedTickets: value })} /></div><div className="work-message-options work-general-message"><span>途中の報告（任意）</span><div>{COMMON_WORK_MESSAGES.map((message) => <button key={message} type="button" className={schedule.extraMessage === message ? 'selected' : ''} onClick={() => onPatch({ extraMessage: message })}>{message}</button>)}</div><input className="text-input" value={schedule.extraMessage} onChange={(event) => onPatch({ extraMessage: event.target.value })} placeholder="自由入力もできます" /></div><label className="field-label work-memo-label" htmlFor="work-finish-memo">終了時の補足（任意）</label><textarea id="work-finish-memo" className="text-input memo-input" value={schedule.finishMemo} onChange={(event) => onPatch({ finishMemo: event.target.value })} rows="2" placeholder="例：サービス券受取が少なかったため配布数が増加" /></article>
 }
 
-function WorkReportView({ report, restartDay, lineText, onStorePatch, onSchedulePatch, onNotify, onGenerate, onCopy }) {
-  return <section className="view-section" aria-labelledby="work-heading"><div className="section-heading"><div><h1 id="work-heading">勤務報告</h1><p>店舗の到着・再起動・休憩・終了を順番に記録します。</p></div><span className={`section-count ${restartDay ? 'restart-day-label' : ''}`}>{restartDay ? '本日は再起動日' : '再起動なし'}</span></div><div className={`work-rule-banner ${restartDay ? 'restart' : ''}`}><span className="tip-icon">!</span><span><strong>{restartDay ? '今日は水曜・土曜の再起動対象日です' : '今日は再起動なしの勤務日です'}</strong><br />杉栄店 → 名東本通店 → 10:00開始 → 12:00休憩 → 15:00再開 → 18:00終了</span></div><div className="work-store-list">{WORK_STORES.map((config) => <WorkStoreCard key={config.id} config={config} data={report.stores[config.id]} restartDay={restartDay} onPatch={(patch) => onStorePatch(config.id, patch)} onNotify={onNotify} />)}</div><WorkScheduleCard schedule={report.schedule} onPatch={onSchedulePatch} onNotify={onNotify} /><div className="line-tools work-line-tools"><div><strong>勤務報告を作成</strong><span>現在記録されている内容だけで文章をまとめます。</span></div><button type="button" className="line-button" onClick={onGenerate}><span className="line-mark">LINE</span>報告文を生成</button></div>{lineText && <div className="line-output work-line-output"><div className="line-output-heading"><strong>生成された勤務報告</strong><button type="button" className="copy-button" onClick={onCopy}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="勤務報告用テキスト" /></div>}</section>
+function WorkReportView({ report, storeConfigs, restartDay, lineText, onStorePatch, onSchedulePatch, onNotify, onGenerate, onCopy }) {
+  return <section className="view-section" aria-labelledby="work-heading"><div className="section-heading"><div><h1 id="work-heading">勤務報告</h1><p>店舗の到着・再起動・休憩・終了を順番に記録します。</p></div><span className={`section-count ${restartDay ? 'restart-day-label' : ''}`}>{restartDay ? '本日は再起動日' : '再起動なし'}</span></div><div className={`work-rule-banner ${restartDay ? 'restart' : ''}`}><span className="tip-icon">!</span><span><strong>{restartDay ? '今日は水曜・土曜の再起動対象日です' : '今日は再起動なしの勤務日です'}</strong><br />{storeConfigs.map((config) => config.label).join(' → ')} → 10:00開始 → 12:00休憩 → 15:00再開 → 18:00終了</span></div><div className="work-store-list">{storeConfigs.map((config) => <WorkStoreCard key={config.id} config={config} data={report.stores[config.id]} restartDay={restartDay} onPatch={(patch) => onStorePatch(config.id, patch)} onNotify={onNotify} />)}</div><WorkScheduleCard schedule={report.schedule} onPatch={onSchedulePatch} onNotify={onNotify} /><div className="line-tools work-line-tools"><div><strong>勤務報告を作成</strong><span>現在記録されている内容だけで文章をまとめます。</span></div><button type="button" className="line-button" onClick={onGenerate}><span className="line-mark">LINE</span>報告文を生成</button></div>{lineText && <div className="line-output work-line-output"><div className="line-output-heading"><strong>生成された勤務報告</strong><button type="button" className="copy-button" onClick={onCopy}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="勤務報告用テキスト" /></div>}</section>
+}
+
+function SettingsSheet({ settings, onSave, onClose }) {
+  const [form, setForm] = useState({
+    storeA: settings.storeLabels.storeA,
+    storeB: settings.storeLabels.storeB,
+  })
+  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }))
+  const submit = (event) => {
+    event.preventDefault()
+    onSave({ storeLabels: { storeA: form.storeA.trim() || '店舗A', storeB: form.storeB.trim() || '店舗B' } })
+  }
+  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="settings-sheet-title">
+      <div className="sheet-handle" />
+      <div className="sheet-heading"><div><span className="eyebrow">端末内に保存</span><h2 id="settings-sheet-title">店舗名設定</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="閉じる"><Icon name="close" /></button></div>
+      <p className="spot-confirm-help">店舗名は公開ページやコードには保存されず、この端末のブラウザ内だけに保存されます。</p>
+      <form onSubmit={submit}>
+        <div className="form-grid"><label className="field-label">1店舗目<input className="text-input" type="text" value={form.storeA} onChange={(event) => update('storeA', event.target.value)} placeholder="例：店舗A" /></label><label className="field-label">2店舗目<input className="text-input" type="text" value={form.storeB} onChange={(event) => update('storeB', event.target.value)} placeholder="例：店舗B" /></label></div>
+        <div className="sheet-footer"><button type="button" className="secondary-button" onClick={onClose}>キャンセル</button><button type="submit" className="primary-button">店舗名を保存</button></div>
+      </form>
+    </section>
+  </div>
 }
 
 function RecordRow({ record, now, action, actionLabel, actionTone = 'primary', onNote, onEdit, onDelete }) {
@@ -469,6 +510,7 @@ function EditModal({ record, onSave, onDelete, onClose }) {
 function App() {
   const todayKey = getDateKey()
   const restartDay = isRestartDay()
+  const [settings, setSettings] = useState(() => loadSettings())
   const [records, setRecords] = useState(() => loadRecords(todayKey))
   const [workReport, setWorkReport] = useState(() => loadWorkReport(todayKey))
   const [activeView, setActiveView] = useState('record')
@@ -478,7 +520,13 @@ function App() {
   const [issueRecord, setIssueRecord] = useState(null)
   const [lineText, setLineText] = useState('')
   const [workLineText, setWorkLineText] = useState('')
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [toast, setToast] = useState('')
+
+  const storeConfigs = useMemo(() => WORK_STORES.map((config) => {
+    const label = settings.storeLabels[config.id] || config.defaultLabel
+    return { ...config, label, arrivalText: config.id === 'storeB' ? `ただいま、${label}に到着しました。` : config.arrivalText }
+  }), [settings])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
@@ -494,6 +542,10 @@ function App() {
   }, [todayKey, workReport])
 
   useEffect(() => {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+  }, [settings])
+
+  useEffect(() => {
     if (!toast) return undefined
     const timer = window.setTimeout(() => setToast(''), 2600)
     return () => window.clearTimeout(timer)
@@ -503,7 +555,7 @@ function App() {
     // Native Android builds use the bundled files directly. Keeping a Service
     // Worker there can make an app update continue serving the previous bundle.
     if (Capacitor.isNativePlatform()) return
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {})
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {})
   }, [])
 
   const parkingRecords = useMemo(() => records.filter((record) => record.status === 'parking').sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt)), [records])
@@ -596,7 +648,7 @@ function App() {
       return [`・駐車位置番号:${formatSpotLabel(getRecordSpot(record), '番号未入力')}`, elapsedText, issuedText, `${settledText}${noteText}`].join('\n')
     }).join('\n\n')
     const hasException = reportRecords.some((record) => Boolean(getNotes(record)))
-    const reportHeader = ['【名東本通店】', 'お疲れ様です。', reportRecords.length === 0 ? '90秒以内の記録はありません。' : hasException ? '1分30秒以内の記録ですが、例外メモがあります。' : '1分30秒以内の件ですが問題なく発行されております。'].join('\n')
+    const reportHeader = [`【${storeConfigs.find((config) => config.id === 'storeB').label}】`, 'お疲れ様です。', reportRecords.length === 0 ? '90秒以内の記録はありません。' : hasException ? '1分30秒以内の記録ですが、例外メモがあります。' : '1分30秒以内の件ですが問題なく発行されております。'].join('\n')
     setLineText(`${reportHeader}${recordsText ? `\n\n${recordsText}` : ''}`)
     notify('LINE用テキストを生成しました')
   }
@@ -607,8 +659,15 @@ function App() {
   }
 
   const generateWorkLineText = () => {
-    setWorkLineText(buildWorkLineText(workReport))
+    setWorkLineText(buildWorkLineText(workReport, storeConfigs))
     notify('勤務報告を生成しました')
+  }
+
+  const saveSettings = (nextSettings) => {
+    setSettings(nextSettings)
+    setSettingsOpen(false)
+    setWorkLineText('')
+    notify('店舗名を端末内に保存しました')
   }
 
   const copyWorkLineText = async () => {
@@ -625,7 +684,7 @@ function App() {
   const primaryTabItems = tabItems.filter((tab) => tab.id !== 'work')
 
   return <div className="app-shell">
-    <header className="app-header"><div className="brand-mark"><span className="brand-dot" /><span>精算機補助</span></div><div className="header-date">{formatDateLabel()}</div><button type="button" className="help-button" aria-label="このアプリについて" onClick={() => notify('番号が分からないときは「番号未入力で開始」→発行時に入力してください')} >?</button></header>
+    <header className="app-header"><div className="brand-mark"><span className="brand-dot" /><span>精算機補助</span></div><div className="header-date">{formatDateLabel()}</div><button type="button" className="help-button" aria-label="店舗名設定を開く" onClick={() => setSettingsOpen(true)}>⚙</button></header>
     <nav className="tab-nav" aria-label="メインメニュー">{tabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={setActiveView} />)}</nav>
     <main className="main-content">
       <div className="day-banner"><span><Icon name="clock" size={18} />本日 {formatDateLabel()}</span><div className="day-banner-actions"><button type="button" onClick={() => { setRecords(loadRecords(todayKey)); setWorkReport(loadWorkReport(todayKey)); notify('保存データを読み込みました') }}><Icon name="refresh" size={17} />更新</button><button type="button" className={`secondary-nav-button ${activeView === 'work' ? 'active' : ''}`} onClick={() => setActiveView('work')}><Icon name="note" size={15} />勤務報告</button></div></div>
@@ -637,7 +696,7 @@ function App() {
         {parkingRecords.length === 0 && <EmptyState title="タイマー動作中の車両はありません" detail="車が駐車したら、番号ボタンまたは番号未入力で開始を押してください。" />}
       </section>}
 
-      {activeView === 'work' && <WorkReportView report={workReport} restartDay={restartDay} lineText={workLineText} onStorePatch={updateWorkStore} onSchedulePatch={updateWorkSchedule} onNotify={notify} onGenerate={generateWorkLineText} onCopy={copyWorkLineText} />}
+      {activeView === 'work' && <WorkReportView report={workReport} storeConfigs={storeConfigs} restartDay={restartDay} lineText={workLineText} onStorePatch={updateWorkStore} onSchedulePatch={updateWorkSchedule} onNotify={notify} onGenerate={generateWorkLineText} onCopy={copyWorkLineText} />}
 
       {activeView === 'issued' && <section className="view-section" aria-labelledby="issued-heading"><div className="section-heading"><div><h1 id="issued-heading">発行済み・精算待ち</h1><p>証明書を発行した車両の精算を記録します。番号の編集・削除もここから行えます。</p></div><span className="section-count">{issuedRecords.length}件</span></div>{issuedRecords.length === 0 ? <EmptyState title="精算待ちの車両はありません" detail="証明書発行後の車両がここに表示されます。" /> : <div className="record-list">{issuedRecords.map((record) => <RecordRow key={record.id} record={record} now={now} action={settleRecord} actionLabel="精算" onNote={setNoteRecord} onEdit={setEditRecord} onDelete={deleteRecord} />)}</div>}</section>}
 
@@ -648,6 +707,7 @@ function App() {
     {noteRecord && <NoteSheet record={records.find((record) => record.id === noteRecord.id) || noteRecord} onSave={saveNotes} onClose={() => setNoteRecord(null)} />}
     {issueRecord && <SpotConfirmSheet record={records.find((record) => record.id === issueRecord.id) || issueRecord} onConfirm={confirmCertificateIssue} onClose={() => setIssueRecord(null)} />}
     {editRecord && <EditModal record={records.find((record) => record.id === editRecord.id) || editRecord} onSave={saveEdit} onDelete={deleteRecord} onClose={() => setEditRecord(null)} />}
+    {settingsOpen && <SettingsSheet settings={settings} onSave={saveSettings} onClose={() => setSettingsOpen(false)} />}
     {toast && <div className="toast" role="status">{toast}</div>}
   </div>
 }

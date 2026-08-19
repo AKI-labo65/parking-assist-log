@@ -1,5 +1,6 @@
-const CACHE_NAME = 'parking-assist-v15'
-const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg']
+const CACHE_NAME = 'parking-assist-v16'
+const BASE_PATH = new URL('./', self.registration.scope).pathname
+const APP_SHELL = [BASE_PATH, `${BASE_PATH}index.html`, `${BASE_PATH}manifest.webmanifest`, `${BASE_PATH}icon.svg`]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)))
@@ -17,5 +18,5 @@ self.addEventListener('fetch', (event) => {
     const copy = response.clone()
     caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy))
     return response
-  }).catch(() => caches.match('/'))))
+  }).catch(() => caches.match(BASE_PATH))))
 })
