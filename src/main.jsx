@@ -574,7 +574,9 @@ function App() {
   }
 
   const generateLineText = () => {
-    const recordsText = [...records].sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt)).map((record) => {
+    // LINE報告は、履歴画面に表示される精算済み記録だけを対象にする。
+    // 駐車中・発行済みの記録まで含めると、未完了の車両や前段階のログが混ざる。
+    const recordsText = [...settledRecords].sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt)).map((record) => {
       const elapsedText = record.issuedAt ? `駐車→証明書発行${getElapsedSeconds(record, now)}秒` : '駐車→証明書発行できず'
       const issuedText = record.issuedAt ? `${formatTime(record.issuedAt).replace(':', '：')}…証明書発行` : `${formatTime(record.startedAt).replace(':', '：')}…証明書発行できず`
       const settledText = record.settledAt ? `${formatTime(record.settledAt).replace(':', '：')}…精算` : '精算時間不明'
@@ -626,7 +628,7 @@ function App() {
 
       {activeView === 'issued' && <section className="view-section" aria-labelledby="issued-heading"><div className="section-heading"><div><h1 id="issued-heading">発行済み・精算待ち</h1><p>証明書を発行した車両の精算を記録します。番号の編集・削除もここから行えます。</p></div><span className="section-count">{issuedRecords.length}件</span></div>{issuedRecords.length === 0 ? <EmptyState title="精算待ちの車両はありません" detail="証明書発行後の車両がここに表示されます。" /> : <div className="record-list">{issuedRecords.map((record) => <RecordRow key={record.id} record={record} now={now} action={settleRecord} actionLabel="精算" onNote={setNoteRecord} onEdit={setEditRecord} onDelete={deleteRecord} />)}</div>}</section>}
 
-      {activeView === 'history' && <section className="view-section" aria-labelledby="history-heading"><div className="section-heading"><div><h1 id="history-heading">本日の履歴</h1><p>精算済みの記録を確認・修正できます。</p></div><span className="section-count">{settledRecords.length}件</span></div><div className="line-tools"><div><strong>LINE報告</strong><span>今日の記録を現在の形式でまとめます。</span></div><button type="button" className="line-button" onClick={generateLineText}><span className="line-mark">LINE</span>LINE用テキストを生成</button></div>{lineText && <div className="line-output"><div className="line-output-heading"><strong>生成されたテキスト</strong><button type="button" className="copy-button" onClick={copyLineText}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="LINE用テキスト" /></div>}{settledRecords.length === 0 ? <EmptyState title="完了した記録はありません" detail="精算ボタンを押した記録がここに表示されます。" /> : <div className="record-list history-list">{settledRecords.map((record) => <RecordRow key={record.id} record={record} now={now} onNote={setNoteRecord} onEdit={setEditRecord} onDelete={deleteRecord} />)}</div>}</section>}
+      {activeView === 'history' && <section className="view-section" aria-labelledby="history-heading"><div className="section-heading"><div><h1 id="history-heading">本日の履歴</h1><p>精算済みの記録を確認・修正できます。</p></div><span className="section-count">{settledRecords.length}件</span></div><div className="line-tools"><div><strong>LINE報告</strong><span>下の履歴に表示されている精算済み記録だけをまとめます。</span></div><button type="button" className="line-button" onClick={generateLineText}><span className="line-mark">LINE</span>LINE用テキストを生成</button></div>{lineText && <div className="line-output"><div className="line-output-heading"><strong>生成されたテキスト</strong><button type="button" className="copy-button" onClick={copyLineText}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="LINE用テキスト" /></div>}{settledRecords.length === 0 ? <EmptyState title="完了した記録はありません" detail="精算ボタンを押した記録がここに表示されます。" /> : <div className="record-list history-list">{settledRecords.map((record) => <RecordRow key={record.id} record={record} now={now} onNote={setNoteRecord} onEdit={setEditRecord} onDelete={deleteRecord} />)}</div>}</section>}
     </main>
     <footer className="app-footer">端末内に自動保存中 · {todayKey}</footer>
     {noteRecord && <NoteSheet record={records.find((record) => record.id === noteRecord.id) || noteRecord} onSave={saveNotes} onClose={() => setNoteRecord(null)} />}
