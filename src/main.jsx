@@ -13,6 +13,11 @@ const WORK_STORES = [
   { id: 'sugiei', label: '杉栄店', arrivalText: '現着致しました。', hasCommute: true },
   { id: 'meito', label: '名東本通店', arrivalText: 'ただいま、名東本通店到着しました。', hasCommute: false },
 ]
+const PARKING_SPOT_COLUMNS = [
+  ['1', '2', '3', '4', '5', '6', '7', '8'],
+  ['21', '20', '19', '18', '17', '16', '15', '14', '13', '12', '10', '9'],
+]
+const PARKING_SPOTS = PARKING_SPOT_COLUMNS.flat()
 const STATUS = {
   parking: { label: '駐車中', tone: 'parking' },
   issued: { label: '証明書発行済み', tone: 'issued' },
@@ -389,15 +394,17 @@ function RecordRow({ record, now, action, actionLabel, actionTone = 'primary', o
 
 function ParkingGrid({ records, onStart }) {
   const occupied = new Map(records.filter((record) => record.status !== 'settled' && getRecordSpot(record)).map((record) => [getRecordSpot(record), record]))
-  return <div className="parking-grid" aria-label="駐車位置番号">
-    {Array.from({ length: 21 }, (_, index) => index + 1).map((spot) => {
-      const record = occupied.get(String(spot))
-      const disabled = Boolean(record)
-      return <button key={spot} type="button" className={`spot-button ${record?.status === 'parking' ? 'active' : ''} ${record?.status === 'issued' ? 'waiting' : ''}`} disabled={disabled} onClick={() => onStart(spot)} aria-label={`${spot}番${record ? `・${STATUS[record.status].label}` : '・新しく記録開始'}`}>
-        <strong>{spot}</strong>
-        {record && <small>{record.status === 'parking' ? '対応中' : '待ち'}</small>}
-      </button>
-    })}
+  return <div className="parking-layout" aria-label="駐車位置番号の実際の配置">
+    {PARKING_SPOT_COLUMNS.map((column, columnIndex) => <div key={columnIndex} className={`parking-column ${columnIndex === 0 ? 'left' : 'right'}`}>
+      {column.map((spot) => {
+        const record = occupied.get(spot)
+        const disabled = Boolean(record)
+        return <button key={spot} type="button" className={`spot-button ${record?.status === 'parking' ? 'active' : ''} ${record?.status === 'issued' ? 'waiting' : ''}`} disabled={disabled} onClick={() => onStart(spot)} aria-label={`${spot}番${record ? `・${STATUS[record.status].label}` : '・新しく記録開始'}`}>
+          <strong>{spot}</strong>
+          {record && <small>{record.status === 'parking' ? '対応中' : '待ち'}</small>}
+        </button>
+      })}
+    </div>)}
   </div>
 }
 
@@ -405,7 +412,7 @@ function SpotConfirmSheet({ record, onConfirm, onClose }) {
   const initialSpot = getRecordSpot(record)
   const [spot, setSpot] = useState(initialSpot || '')
   if (!record) return null
-  const quickSpots = Array.from({ length: 21 }, (_, index) => String(index + 1))
+  const quickSpots = PARKING_SPOTS
   const hasKnownSpot = Boolean(initialSpot)
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section className="bottom-sheet spot-confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="spot-confirm-title">
@@ -636,7 +643,7 @@ function App() {
       {activeView === 'record' && <section className="view-section" aria-labelledby="record-heading">
         <div className="section-heading"><div><h1 id="record-heading">駐車番号を選択</h1><p>番号が分かるときはタップ。分からないときは発行時に入力できます。</p></div><span className="section-count">対応中 {parkingRecords.length}件</span></div>
         {parkingRecords.length > 0 && <div className="active-panel"><div className="active-panel-heading"><span className="live-dot" />タイマー動作中（発行時に番号入力）</div>{parkingRecords.map((record) => <div className="active-record" key={record.id}><div className="active-summary"><strong className={!getRecordSpot(record) ? 'unknown' : ''}>{getRecordSpotLabel(record)}</strong><div><StatusBadge status="parking" /><div className="active-time">{getElapsedSeconds(record, now)}<small>秒</small><span>{formatDuration(getElapsedSeconds(record, now))}</span></div></div></div><div className="active-actions"><button type="button" className="primary-button issue-button" onClick={() => issueCertificate(record)}><Icon name="check" size={20} /><span>証明書発行＋番号入力</span></button><div className="active-more-actions"><button type="button" className="secondary-button note-button" onClick={() => setNoteRecord(record)}><Icon name="note" size={16} />メモ</button><button type="button" className="secondary-button note-button" onClick={() => setEditRecord(record)}><Icon name="edit" size={16} />編集</button><button type="button" className="secondary-button note-button danger" onClick={() => deleteRecord(record)}><Icon name="trash" size={16} />削除</button></div></div></div>)}</div>}
-        <div className="parking-area"><div className="area-heading"><h2>駐車位置番号</h2><span>1〜21</span></div><ParkingGrid records={records} onStart={startRecord} /><button type="button" className="unknown-start-button" onClick={startUnknownRecord}><Icon name="plus" size={20} /><span><strong>番号未入力でタイマー開始</strong><small>駐車証明発行時に番号を入力</small></span></button></div>
+        <div className="parking-area"><div className="area-heading"><h2>駐車位置番号</h2><span>左 1〜8　右 21〜9</span></div><ParkingGrid records={records} onStart={startRecord} /><button type="button" className="unknown-start-button" onClick={startUnknownRecord}><Icon name="plus" size={20} /><span><strong>番号未入力でタイマー開始</strong><small>駐車証明発行時に番号を入力</small></span></button></div>
         {parkingRecords.length === 0 && <EmptyState title="タイマー動作中の車両はありません" detail="車が駐車したら、番号ボタンまたは番号未入力で開始を押してください。" />}
         <div className="quick-tip"><span className="tip-icon">!</span><span><strong>90秒以内の発行が正常</strong><br />90秒を超えると記録に「90秒超」と表示されます。</span></div>
       </section>}

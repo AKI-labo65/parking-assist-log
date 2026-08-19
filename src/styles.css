@@ -86,7 +86,10 @@ button:disabled { cursor: not-allowed; }
 .secondary-button:hover { background: #e2eaf6; }
 .note-button { min-height: 38px; color: #c8d6ef; background: transparent; border-color: rgba(255,255,255,.24); }
 .parking-area { background: var(--surface); border-radius: 15px; padding: 17px; box-shadow: var(--shadow); }
-.parking-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.parking-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.parking-column { display: flex; flex-direction: column; gap: 8px; }
+.parking-column.left { padding-top: 0; }
+.parking-column.left .spot-button:nth-child(3) { margin-top: 17px; }
 .spot-button { min-height: 61px; padding: 7px 4px; border: 1.5px solid #b8c6dd; border-radius: 9px; background: white; color: var(--navy); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .spot-button strong { font-size: clamp(20px, 5.2vw, 27px); line-height: 1; font-variant-numeric: tabular-nums; }
 .spot-button small { color: var(--muted); font-size: 9px; font-weight: 800; }
@@ -271,7 +274,8 @@ button:disabled { cursor: not-allowed; }
   .issue-button { width: 100%; }
   .active-more-actions { width: 100%; }
   .parking-area { padding: 12px; }
-  .parking-grid { gap: 6px; }
+  .parking-column { gap: 6px; }
+  .parking-column.left .spot-button:nth-child(3) { margin-top: 13px; }
   .spot-button { min-height: 54px; border-radius: 8px; }
   .spot-button strong { font-size: 21px; }
   .spot-button small { font-size: 8px; }
@@ -310,7 +314,7 @@ button:disabled { cursor: not-allowed; }
 @media (min-width: 700px) {
   .active-panel { padding-bottom: 5px; }
   .active-record { padding-left: 24px; padding-right: 24px; }
-  .parking-grid { gap: 10px; }
+  .parking-column { gap: 10px; }
   .spot-button { min-height: 72px; }
 }
 
