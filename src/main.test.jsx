@@ -50,6 +50,7 @@ function makeSettledRecord(overrides = {}) {
 function seedApp(record = makeSettledRecord(), { ended = true } = {}) {
   const dateKey = getDateKey()
   const workReport = createDefaultWorkReport()
+  workReport.activeStoreId = 'storeB'
   if (ended) workReport.schedule.endedAt = new Date().toISOString()
   localStorage.setItem(`parking-assist-records:${dateKey}`, JSON.stringify([record]))
   localStorage.setItem(`parking-assist-work:${dateKey}`, JSON.stringify(workReport))
@@ -208,6 +209,7 @@ describe('work schedule recovery', () => {
     const user = userEvent.setup()
     render(<App />)
 
+    await user.click(screen.getByRole('button', { name: '名東本通店で本日の稼働を開始' }))
     await user.click(screen.getAllByRole('button', { name: '勤務報告' })[0])
     await user.click(screen.getByRole('button', { name: '18:00 勤務終了' }))
     expect(screen.getByRole('heading', { name: '18:00 勤務終了を先に記録しますか？' })).not.toBeNull()
@@ -236,6 +238,12 @@ describe('date rollover', () => {
     const nextRecord = makeSettledRecord({ id: 'next-day', spot: '2', status: 'parking', issuedAt: null, settledAt: null, exitCompletedAt: null })
     localStorage.setItem(`parking-assist-records:${firstDateKey}`, JSON.stringify([firstRecord]))
     localStorage.setItem(`parking-assist-records:${nextDateKey}`, JSON.stringify([nextRecord]))
+    const firstWorkReport = createDefaultWorkReport()
+    firstWorkReport.activeStoreId = 'storeB'
+    const nextWorkReport = createDefaultWorkReport()
+    nextWorkReport.activeStoreId = 'storeB'
+    localStorage.setItem(`parking-assist-work:${firstDateKey}`, JSON.stringify(firstWorkReport))
+    localStorage.setItem(`parking-assist-work:${nextDateKey}`, JSON.stringify(nextWorkReport))
 
     render(<App />)
     expect(screen.getByRole('button', { name: '1番・対応中・詳細を開く' })).not.toBeNull()
