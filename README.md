@@ -94,15 +94,15 @@ npm run android:debug
 生成物は以下です。
 
 ```text
-android/app/build/outputs/apk/debug/v0.1.20.apk
+android/app/build/outputs/apk/debug/v0.1.21.apk
 ```
 
-APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.21`にすると、`v0.1.21.apk`になります。
+APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.22`にすると、`v0.1.22.apk`になります。
 
 Android端末へUSB接続してインストールする場合は、USBデバッグを有効にしてから以下を実行できます。
 
 ```bash
-adb install -r android/app/build/outputs/apk/debug/v0.1.20.apk
+adb install -r android/app/build/outputs/apk/debug/v0.1.21.apk
 ```
 
 ### Android Studioで開く
