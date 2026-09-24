@@ -56,9 +56,10 @@ npm test
 ```text
 .
 ├── index.html                 # エントリHTML、PWAメタ情報
-├── capacitor.config.ts        # Androidアプリ化用のCapacitor設定
+├── capacitor.config.ts        # Android/iOSアプリ化用のCapacitor設定
 ├── package.json               # Vite / Reactの依存関係とスクリプト
 ├── android/                   # Capacitorが生成するAndroid Studioプロジェクト
+├── ios/                       # Capacitor iOSプロジェクトとLive Activity用Widget Extension
 ├── public/
 │   ├── icon.svg               # アプリアイコン
 │   ├── manifest.webmanifest   # PWAマニフェスト
@@ -70,6 +71,20 @@ npm test
 ```
 
 Android版では、アプリ更新時に古いWebViewのService Workerキャッシュを削除してから新しい画面を読み込みます。記録本体のlocalStorageは削除しません。
+
+## iPhoneアプリとDynamic Island
+
+Safariの「ホーム画面に追加」で使うPWAはそのまま利用できますが、Dynamic Islandには表示できません。Dynamic Island対応版は、Capacitorで同じWeb画面をiOSアプリに組み込み、`ActivityKit`のLive Activityと`WidgetKit`のDynamic Island表示を追加しています。
+
+```bash
+npm install
+npm run ios:sync
+npm run ios:open
+```
+
+Xcodeで`App`スキームを実機またはシミュレータへビルドしてください。iOSアプリ側の`ParkingLiveActivityPlugin.swift`がWeb画面の記録状態をLive Activityへ同期し、`ParkingLiveActivityWidget.swift`が駐車中の経過時間・駐車位置番号・証明書発行済み状態を表示します。精算済みになるとLive Activityを終了します。
+
+この初版は端末内のタイマー表示が目的なので、サーバーやAPNsは使いません。バックエンドから閉じたアプリへ状態を送る必要が出た場合は、ActivityKitのプッシュ更新用APNsを追加します。実機へのインストール・TestFlight配布にはApple Developer Programと署名設定が必要です。
 
 ## Android APK化
 

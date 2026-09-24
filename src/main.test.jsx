@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent from '@testing-library/user-event/dist/esm/index.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   App,
@@ -138,6 +138,37 @@ describe('generated LINE report consistency', () => {
     expect(text).not.toContain('一部メモあり。')
   })
 
+  it('regenerates 90-second records even after they were copied once', async () => {
+    seedApp(makeSettledRecord({ lineReportedAt: new Date().toISOString() }))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getAllByRole('button', { name: /履歴/ })[0])
+    await user.click(screen.getByRole('button', { name: /まとめて報告文を生成/ }))
+
+    expect(screen.getByLabelText('LINE用テキスト').value).toContain('駐車位置番号:1番')
+    expect(screen.getByLabelText('LINE用テキスト').value).not.toContain('報告待ちの1分30秒以内の記録はありません')
+  })
+
+  it('keeps the generated text visible after copying and marking records as reported', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    })
+    seedApp()
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getAllByRole('button', { name: /履歴/ })[0])
+    await user.click(screen.getByRole('button', { name: /まとめて報告文を生成/ }))
+    const output = screen.getByLabelText('LINE用テキスト')
+    expect(output.value).toContain('駐車位置番号:1番')
+
+    await user.click(screen.getByRole('button', { name: 'コピー' }))
+    await waitFor(() => expect(screen.getByLabelText('LINE用テキスト').value).toContain('駐車位置番号:1番'))
+    expect(screen.getByText('報告済み')).not.toBeNull()
+  })
+
   it('allows the batch report to be generated before shift end', async () => {
     seedApp(makeSettledRecord(), { ended: false })
     const user = userEvent.setup()
@@ -146,7 +177,7 @@ describe('generated LINE report consistency', () => {
     await user.click(screen.getAllByRole('button', { name: /履歴/ })[0])
     const generateButton = screen.getByRole('button', { name: 'LINE まとめて報告文を生成' })
 
-    expect(generateButton).not.toBeDisabled()
+    expect(generateButton.disabled).toBe(false)
     await user.click(generateButton)
     expect(screen.getByLabelText('LINE用テキスト').value).toContain('駐車位置番号:1番')
   })

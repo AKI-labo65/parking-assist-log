@@ -10,20 +10,23 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "mobile:sync": "npm run build && cap sync android",
+    "ios:sync": "npm run build && cap sync ios",
+    "ios:open": "npm run ios:sync && cap open ios",
     "android:debug": "npm run mobile:sync && cd android && ./gradlew assembleDebug",
     "android:release": "npm run mobile:sync && cd android && ./gradlew bundleRelease"
   },
   "dependencies": {
     "@capacitor/android": "latest",
     "@capacitor/core": "latest",
+    "@capacitor/ios": "^8.5.2",
     "react": "latest",
     "react-dom": "latest",
     "vite": "latest"
   },
   "devDependencies": {
+    "@capacitor/cli": "latest",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.5",
-    "@capacitor/cli": "latest",
     "jsdom": "^28.1.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"

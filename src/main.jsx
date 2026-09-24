@@ -1,11 +1,39 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import './styles.css'
+
+const ParkingLiveActivity = registerPlugin('ParkingLiveActivity')
+
+function isNativeIOS() {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'
+}
+
+function nativeActivityRecords(records) {
+  return records
+    .filter((record) => record.status === 'parking' || record.status === 'issued')
+    .map((record) => ({
+      id: record.id,
+      status: record.status,
+      spot: getRecordSpot(record) || '',
+      startedAt: record.startedAt,
+      issuedAt: record.issuedAt,
+    }))
+}
+
+async function syncParkingLiveActivities(records) {
+  if (!isNativeIOS()) return
+  try {
+    await ParkingLiveActivity.sync({ records: nativeActivityRecords(records) })
+  } catch {
+    // The web and Android builds do not have this native plugin.
+  }
+}
 
 const STORAGE_PREFIX = 'parking-assist-records:'
 const WORK_STORAGE_PREFIX = 'parking-assist-work:'
 const SETTINGS_STORAGE_KEY = 'parking-assist-settings'
+const THEME_STORAGE_KEY = 'parking-assist-theme'
 const COMMON_NOTES = ['サービス券1枚使用', '料金未発生', '操作ミス', '発行できず', '精算時間不明']
 const REPORT_TYPES = [
   { id: 'normal', label: '通常', description: '1分30秒以内・問題なく発行' },
@@ -133,6 +161,20 @@ function normalizeSpot(value) {
   return spot || null
 }
 
+function loadTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light'
+  } catch {
+    return 'light'
+  }
+}
+
+function applyTheme(theme) {
+  if (typeof document === 'undefined') return
+  document.documentElement.dataset.theme = theme
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#121318' : '#0b285c')
+}
+
 function normalizeReportFlags(flags) {
   return REPORT_FLAGS.reduce((result, flag) => ({ ...result, [flag.id]: Boolean(flags?.[flag.id]) }), {})
 }
@@ -156,6 +198,10 @@ function getRecordSpotLabel(record) {
 function withReportMemo(lines, record) {
   const memo = record.reportMemo?.trim()
   return memo ? [...lines, '', memo].join('\n') : lines.join('\n')
+}
+
+function getReportInputSignature(records) {
+  return JSON.stringify(records.map(({ lineReportedAt, ...record }) => record))
 }
 
 function buildDetailedReportText(record, storeLabel) {
@@ -542,6 +588,8 @@ function Icon({ name, size = 20 }) {
     close: <><path d="m6 6 12 12M18 6 6 18" /></>,
     refresh: <><path d="M20 11a8 8 0 0 0-14.8-4L3 10" /><path d="M3 5v5h5M4 13a8 8 0 0 0 14.8 4L21 14" /><path d="M21 19v-5h-5" /></>,
     arrow: <path d="m9 18 6-6-6-6" />,
+    sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></>,
+    moon: <path d="M20.5 15.3A8.5 8.5 0 0 1 8.7 3.5 8.5 8.5 0 1 0 20.5 15.3Z" />,
   }
   return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
@@ -896,6 +944,11 @@ function App() {
   const [now, setNow] = useState(Date.now())
   const restartRule = getRestartRule(new Date(now))
   const [settings, setSettings] = useState(() => loadSettings())
+  const [theme, setTheme] = useState(() => {
+    const initialTheme = loadTheme()
+    applyTheme(initialTheme)
+    return initialTheme
+  })
   const [records, setRecords] = useState(() => loadRecords(todayKey))
   const [workReport, setWorkReport] = useState(() => loadWorkReport(todayKey))
   const [activeView, setActiveView] = useState('record')
@@ -910,6 +963,8 @@ function App() {
   const [storeSelectorOpen, setStoreSelectorOpen] = useState(false)
   const [deleteAllOpen, setDeleteAllOpen] = useState(false)
   const [toast, setToast] = useState('')
+  const [isScrolling, setIsScrolling] = useState(false)
+  const reportInputSignatureRef = useRef(null)
 
   const storeConfigs = useMemo(() => WORK_STORES.map((config) => {
     const label = settings.storeLabels[config.id] || config.defaultLabel
@@ -939,6 +994,10 @@ function App() {
   }, [records, todayKey])
 
   useEffect(() => {
+    syncParkingLiveActivities(records)
+  }, [records])
+
+  useEffect(() => {
     localStorage.setItem(`${WORK_STORAGE_PREFIX}${todayKey}`, JSON.stringify(workReport))
   }, [todayKey, workReport])
 
@@ -947,9 +1006,39 @@ function App() {
   }, [settings])
 
   useEffect(() => {
+    applyTheme(theme)
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme)
+    } catch {
+      // The app remains usable when storage is unavailable.
+    }
+  }, [theme])
+
+  useEffect(() => {
+    const nextSignature = `${todayKey}:${getReportInputSignature(records)}`
+    if (reportInputSignatureRef.current === null) {
+      reportInputSignatureRef.current = nextSignature
+      return
+    }
+    if (reportInputSignatureRef.current === nextSignature) return
+    reportInputSignatureRef.current = nextSignature
     setLineText('')
     setLineReportTargetIds([])
-  }, [records])
+  }, [records, todayKey])
+
+  useEffect(() => {
+    let hideTimer
+    const handleScroll = () => {
+      setIsScrolling(true)
+      window.clearTimeout(hideTimer)
+      hideTimer = window.setTimeout(() => setIsScrolling(false), 180)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.clearTimeout(hideTimer)
+    }
+  }, [])
 
   useEffect(() => {
     setWorkLineText('')
@@ -974,6 +1063,12 @@ function App() {
   const settledRecords = useMemo(() => records.filter((record) => record.status === 'settled').sort((a, b) => new Date(b.settledAt || b.startedAt) - new Date(a.settledAt || a.startedAt)), [records])
 
   const notify = (message) => setToast(message)
+  const toggleTheme = () => setTheme((current) => current === 'dark' ? 'light' : 'dark')
+  const selectView = (view) => {
+    setActiveView(view)
+    setIsScrolling(false)
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }
   const updateRecord = (id, patch) => setRecords((current) => current.map((record) => record.id === id ? { ...record, ...patch } : record))
   const updateWorkStore = (storeId, patch) => setWorkReport((current) => ({ ...current, stores: { ...current.stores, [storeId]: { ...current.stores[storeId], ...patch } } }))
   const updateWorkSchedule = (patch) => setWorkReport((current) => ({ ...current, schedule: { ...current.schedule, ...patch } }))
@@ -1088,8 +1183,10 @@ function App() {
   }
 
   const generateLineText = () => {
-    // 90秒以内の未報告分を、シフト終了前後に関係なくまとめて対象にする。
-    const reportRecords = settledRecords.filter((record) => getElapsedSeconds(record, now) <= 90 && !record.lineReportedAt)
+    // シフト終了時刻やコピー済みかどうかに関係なく、90秒以内の履歴を再生成できるようにする。
+    // コピー済みの記録は対象から消さず、報告済み状態だけを維持する。
+    const reportRecords = settledRecords.filter((record) => getElapsedSeconds(record, now) <= 90)
+    const pendingReportRecords = reportRecords.filter((record) => !record.lineReportedAt)
     const storeLabel = activeStoreConfig?.label || storeConfigs.find((config) => config.id === 'storeB').label
     const sortedRecords = [...reportRecords].sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt))
     const normalRecords = sortedRecords.filter((record) => !record.reportType || record.reportType === 'normal')
@@ -1110,9 +1207,13 @@ function App() {
     if (sections.length === 0) {
       sections.push([`【${storeLabel}】`, 'お疲れ様です。', '報告待ちの1分30秒以内の記録はありません。'].join('\n'))
     }
-    setLineReportTargetIds(reportRecords.map((record) => record.id))
+    setLineReportTargetIds(pendingReportRecords.map((record) => record.id))
     setLineText(sections.join('\n\n\n'))
-    notify(reportRecords.length > 0 ? `${reportRecords.length}件のシフト終了後報告を生成しました` : '報告待ちの記録はありません')
+    if (reportRecords.length > 0) {
+      notify(pendingReportRecords.length > 0 ? `${pendingReportRecords.length}件の90秒以内のまとめ報告を生成しました` : '報告済みの記録を再生成しました')
+    } else {
+      notify('報告待ちの1分30秒以内の記録はありません')
+    }
   }
 
   const generateImmediateLineText = (record) => {
@@ -1164,11 +1265,11 @@ function App() {
   const primaryTabItems = tabItems.filter((tab) => tab.id !== 'work')
 
   return <div className="app-shell">
-    <header className="app-header"><div className="brand-block"><div className="brand-mark"><span className="brand-dot" /><span>精算機補助</span></div>{activeStoreConfig && <button type="button" className="header-store-button" onClick={() => setStoreSelectorOpen(true)} aria-label={`${activeStoreConfig.label}・店舗を変更`}>{activeStoreConfig.label}<Icon name="arrow" size={14} /></button>}</div><div className="header-date">{formatDateLabel()}</div><button type="button" className="help-button" aria-label="店舗名設定を開く" onClick={() => setSettingsOpen(true)}>⚙</button></header>
-    {activeStoreConfig && <nav className="tab-nav" aria-label="メインメニュー">{tabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={setActiveView} />)}</nav>}
+    <header className="app-header"><div className="brand-block"><div className="brand-mark"><span className="brand-dot" /><span>精算機補助</span></div>{activeStoreConfig && <button type="button" className="header-store-button" onClick={() => setStoreSelectorOpen(true)} aria-label={`${activeStoreConfig.label}・店舗を変更`}>{activeStoreConfig.label}<Icon name="arrow" size={14} /></button>}</div><div className="header-date">{formatDateLabel()}</div><div className="header-actions"><button type="button" className="theme-toggle" aria-pressed={theme === 'dark'} aria-label={theme === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え'} onClick={toggleTheme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} /><span>{theme === 'dark' ? 'ライト' : 'ダーク'}</span></button><button type="button" className="help-button" aria-label="店舗名設定を開く" onClick={() => setSettingsOpen(true)}>⚙</button></div></header>
+    {activeStoreConfig && <nav className="tab-nav" aria-label="メインメニュー">{tabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={selectView} />)}</nav>}
     <main className={`main-content ${activeStoreConfig ? '' : 'start-main-content'}`}>
       {!activeStoreConfig ? <StoreStartView dateLabel={formatDateLabel()} options={operationStoreOptions} onSelect={selectOperationStore} /> : <>
-      <div className="day-banner"><span><Icon name="clock" size={18} />本日 {formatDateLabel()}</span><div className="day-banner-actions"><button type="button" onClick={() => { setRecords(loadRecords(todayKey)); setWorkReport(loadWorkReport(todayKey)); notify('保存データを読み込みました') }}><Icon name="refresh" size={17} />更新</button><button type="button" className={`secondary-nav-button ${activeView === 'work' ? 'active' : ''}`} onClick={() => setActiveView('work')}><Icon name="note" size={15} />勤務報告</button></div></div>
+      <div className="day-banner"><span><Icon name="clock" size={18} />本日 {formatDateLabel()}</span><div className="day-banner-actions"><button type="button" onClick={() => { setRecords(loadRecords(todayKey)); setWorkReport(loadWorkReport(todayKey)); notify('保存データを読み込みました') }}><Icon name="refresh" size={17} />更新</button><button type="button" className={`secondary-nav-button ${activeView === 'work' ? 'active' : ''}`} onClick={() => selectView('work')}><Icon name="note" size={15} />勤務報告</button></div></div>
 
       {activeView === 'record' && <section className="view-section" aria-labelledby="record-heading">
         <div className="section-heading"><div><h1 id="record-heading">駐車番号を選択</h1><p>番号が分かるときはタップ。分からないときは発行時に入力できます。</p></div><span className="section-count">対応中 {parkingRecords.length}件</span></div>
@@ -1181,10 +1282,10 @@ function App() {
 
       {activeView === 'issued' && <section className="view-section" aria-labelledby="issued-heading"><div className="section-heading"><div><h1 id="issued-heading">発行済み・精算待ち</h1><p>証明書を発行した車両の精算を記録します。番号の編集・削除もここから行えます。</p></div><span className="section-count">{issuedRecords.length}件</span></div>{issuedRecords.length === 0 ? <EmptyState title="精算待ちの車両はありません" detail="証明書発行後の車両がここに表示されます。" /> : <div className="record-list">{issuedRecords.map((record) => <RecordRow key={record.id} record={record} now={now} action={settleRecord} actionLabel="精算" onNote={setNoteRecord} onEdit={setEditRecord} onDelete={deleteRecord} />)}</div>}</section>}
 
-      {activeView === 'history' && <section className="view-section" aria-labelledby="history-heading"><div className="section-heading"><div><h1 id="history-heading">本日の履歴</h1><p>精算済みの記録を確認・修正できます。90秒以内はまとめて、90秒超は都度報告します。</p></div><div className="section-heading-actions"><span className="section-count">{settledRecords.length}件</span><button type="button" className="subtle-button danger history-clear-button" disabled={settledRecords.length === 0} onClick={() => setDeleteAllOpen(true)}><Icon name="trash" size={16} />履歴を全件削除</button></div></div><div className="line-tools"><div><strong>まとめ報告</strong><span>精算済み・90秒以内の未報告記録をまとめます。いつでも生成できます。</span></div><button type="button" className="line-button" onClick={generateLineText}><span className="line-mark">LINE</span>まとめて報告文を生成</button></div>{lineText && <div className="line-output"><div className="line-output-heading"><strong>生成されたテキスト</strong><button type="button" className="copy-button" onClick={copyLineText}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="LINE用テキスト" /></div>}{settledRecords.length === 0 ? <EmptyState title="完了した記録はありません" detail="精算ボタンを押した記録がここに表示されます。" /> : <div className="record-list history-list">{settledRecords.map((record) => { const needsImmediateReport = getElapsedSeconds(record, now) > 90 && !record.lineReportedAt; return <RecordRow key={record.id} record={record} now={now} action={needsImmediateReport ? generateImmediateLineText : undefined} actionLabel="都度報告" onNote={setNoteRecord} onReport={setReportRecord} onEdit={setEditRecord} onDelete={deleteRecord} /> })}</div>}</section>}
+        {activeView === 'history' && <section className="view-section" aria-labelledby="history-heading"><div className="section-heading"><div><h1 id="history-heading">本日の履歴</h1><p>精算済みの記録を確認・修正できます。90秒以内はまとめて、90秒超は都度報告します。</p></div><div className="section-heading-actions"><span className="section-count">{settledRecords.length}件</span><button type="button" className="subtle-button danger history-clear-button" disabled={settledRecords.length === 0} onClick={() => setDeleteAllOpen(true)}><Icon name="trash" size={16} />履歴を全件削除</button></div></div><div className="line-tools"><div><strong>まとめ報告</strong><span>精算済み・90秒以内の記録をまとめます。コピー後もいつでも再生成できます。</span></div><button type="button" className="line-button" aria-label="LINE まとめて報告文を生成" onClick={generateLineText}><span className="line-mark">LINE</span>まとめて報告文を生成</button></div>{lineText && <div className="line-output"><div className="line-output-heading"><strong>生成されたテキスト</strong><button type="button" className="copy-button" onClick={copyLineText}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="LINE用テキスト" /></div>}{settledRecords.length === 0 ? <EmptyState title="完了した記録はありません" detail="精算ボタンを押した記録がここに表示されます。" /> : <div className="record-list history-list">{settledRecords.map((record) => { const needsImmediateReport = getElapsedSeconds(record, now) > 90 && !record.lineReportedAt; return <RecordRow key={record.id} record={record} now={now} action={needsImmediateReport ? generateImmediateLineText : undefined} actionLabel="都度報告" onNote={setNoteRecord} onReport={setReportRecord} onEdit={setEditRecord} onDelete={deleteRecord} /> })}</div>}</section>}
       </>}
     </main>
-    {activeStoreConfig && <><footer className="app-footer">端末内に自動保存中 · {todayKey}</footer><nav className="mobile-bottom-nav" aria-label="主要メニュー">{primaryTabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={setActiveView} mobile />)}</nav></>}
+    {activeStoreConfig && <><footer className="app-footer">端末内に自動保存中 · {todayKey}</footer><nav className={`mobile-bottom-nav ${isScrolling ? 'is-scrolling' : ''}`} aria-label="主要メニュー">{primaryTabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={selectView} mobile />)}</nav></>}
     {noteRecord && <NoteSheet record={records.find((record) => record.id === noteRecord.id) || noteRecord} onSave={saveNotes} onClose={() => setNoteRecord(null)} />}
     {reportRecord && <ReportSheet record={records.find((record) => record.id === reportRecord.id) || reportRecord} onSave={saveReportSettings} onClose={() => setReportRecord(null)} />}
     {issueRecord && <SpotConfirmSheet record={records.find((record) => record.id === issueRecord.id) || issueRecord} parkingLayout={activeStoreConfig?.parkingLayout} onConfirm={confirmCertificateIssue} onClose={() => setIssueRecord(null)} />}
