@@ -325,18 +325,46 @@ function loadRecords(dateKey) {
   }
 }
 
-function loadSettings() {
+function readStoredSettings() {
   try {
     const value = localStorage.getItem(SETTINGS_STORAGE_KEY)
-    const parsed = value ? JSON.parse(value) : {}
-    const storedLabels = parsed.storeLabels || {}
-    const storeALabel = storedLabels.storeA === '店舗A' ? DEFAULT_SETTINGS.storeLabels.storeA : storedLabels.storeA
-    const storeBLabel = storedLabels.storeB === '店舗B' ? DEFAULT_SETTINGS.storeLabels.storeB : storedLabels.storeB
-    return {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      storeLabels: { ...DEFAULT_SETTINGS.storeLabels, ...storedLabels, ...(storeALabel ? { storeA: storeALabel } : {}), ...(storeBLabel ? { storeB: storeBLabel } : {}) },
-    }
+    return value ? JSON.parse(value) : {}
+  } catch {
+    return {}
+  }
+}
+
+function normalizedStoreLabel(value) {
+  return String(value || '').replace(/\s/g, '').replace(/店$/, '')
+}
+
+function hasLegacySwappedStoreLabels(storeLabels = {}) {
+  return normalizedStoreLabel(storeLabels.storeA) === '名東本通' && normalizedStoreLabel(storeLabels.storeB) === '杉栄'
+}
+
+function swapStoreId(storeId) {
+  if (storeId === 'storeA') return 'storeB'
+  if (storeId === 'storeB') return 'storeA'
+  return storeId
+}
+
+function normalizeSettings(parsed = {}) {
+  const storedLabels = parsed.storeLabels || {}
+  const legacyStoreOrder = hasLegacySwappedStoreLabels(storedLabels)
+  const storeALabel = storedLabels.storeA === '店舗A' ? DEFAULT_SETTINGS.storeLabels.storeA : storedLabels.storeA
+  const storeBLabel = storedLabels.storeB === '店舗B' ? DEFAULT_SETTINGS.storeLabels.storeB : storedLabels.storeB
+  return {
+    ...DEFAULT_SETTINGS,
+    ...parsed,
+    storeLabels: legacyStoreOrder
+      ? DEFAULT_SETTINGS.storeLabels
+      : { ...DEFAULT_SETTINGS.storeLabels, ...storedLabels, ...(storeALabel ? { storeA: storeALabel } : {}), ...(storeBLabel ? { storeB: storeBLabel } : {}) },
+  }
+}
+
+function loadSettings() {
+  try {
+    return normalizeSettings(readStoredSettings())
   } catch {
     return DEFAULT_SETTINGS
   }
@@ -379,12 +407,21 @@ function loadWorkReport(dateKey) {
   try {
     const value = localStorage.getItem(`${WORK_STORAGE_PREFIX}${dateKey}`)
     const parsed = value ? JSON.parse(value) : {}
+    const legacyStoreOrder = hasLegacySwappedStoreLabels(readStoredSettings().storeLabels)
     const parsedStores = Object.values(parsed.stores || {})
+    const storedStores = parsed.stores || {}
+    const migratedStores = legacyStoreOrder
+      ? { storeA: storedStores.storeB || parsedStores[1] || {}, storeB: storedStores.storeA || parsedStores[0] || {} }
+      : storedStores
     const report = {
       ...defaults,
       ...parsed,
-      activeStoreId: OPERATION_STORES.some(({ id }) => id === parsed.activeStoreId) ? parsed.activeStoreId : null,
-      stores: Object.fromEntries(WORK_STORES.map(({ id }, index) => [id, { ...defaults.stores[id], ...(parsed.stores?.[id] || parsedStores[index] || {}) }])),
+      // 旧バージョンでは storeA/storeB の店舗割り当てが現在と逆だった。
+      // 店舗名の移行と同時に、稼働中店舗も入れ替えて表示とマップを一致させる。
+      activeStoreId: OPERATION_STORES.some(({ id }) => id === parsed.activeStoreId)
+        ? (legacyStoreOrder ? swapStoreId(parsed.activeStoreId) : parsed.activeStoreId)
+        : null,
+      stores: Object.fromEntries(WORK_STORES.map(({ id }, index) => [id, { ...defaults.stores[id], ...(migratedStores[id] || parsedStores[index] || {}) }])),
       schedule: { ...defaults.schedule, ...(parsed.schedule || {}) },
     }
     Object.values(report.stores).forEach((store) => {
@@ -1243,7 +1280,7 @@ function App() {
   }
 
   const saveSettings = (nextSettings) => {
-    setSettings(nextSettings)
+    setSettings(normalizeSettings(nextSettings))
     setSettingsOpen(false)
     setLineText('')
     setLineReportTargetIds([])
