@@ -4,9 +4,14 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 import './styles.css'
 
 const ParkingLiveActivity = registerPlugin('ParkingLiveActivity')
+const ParkingNotification = registerPlugin('ParkingNotification')
 
 function isNativeIOS() {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'
+}
+
+function isNativeAndroid() {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 }
 
 function nativeActivityRecords(records) {
@@ -27,6 +32,15 @@ async function syncParkingLiveActivities(records) {
     await ParkingLiveActivity.sync({ records: nativeActivityRecords(records) })
   } catch {
     // The web and Android builds do not have this native plugin.
+  }
+}
+
+async function syncParkingNotifications(records) {
+  if (!isNativeAndroid()) return
+  try {
+    await ParkingNotification.sync({ records: nativeActivityRecords(records) })
+  } catch {
+    // The web and iOS builds do not have this Android plugin.
   }
 }
 
@@ -1002,6 +1016,7 @@ function App() {
   const [toast, setToast] = useState('')
   const [isScrolling, setIsScrolling] = useState(false)
   const reportInputSignatureRef = useRef(null)
+  const notificationPermissionRequestedRef = useRef(false)
 
   const storeConfigs = useMemo(() => WORK_STORES.map((config) => {
     const label = settings.storeLabels[config.id] || config.defaultLabel
@@ -1032,6 +1047,27 @@ function App() {
 
   useEffect(() => {
     syncParkingLiveActivities(records)
+  }, [records])
+
+  useEffect(() => {
+    if (!isNativeAndroid()) return undefined
+    let cancelled = false
+    const activeRecords = nativeActivityRecords(records)
+    const sync = async () => {
+      if (activeRecords.length > 0 && !notificationPermissionRequestedRef.current) {
+        notificationPermissionRequestedRef.current = true
+        try {
+          await ParkingNotification.requestPermission()
+        } catch {
+          // The notification can still be enabled manually from Android settings.
+        }
+      }
+      if (!cancelled) await syncParkingNotifications(records)
+    }
+    void sync()
+    return () => {
+      cancelled = true
+    }
   }, [records])
 
   useEffect(() => {
