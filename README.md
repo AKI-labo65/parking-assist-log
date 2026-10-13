@@ -76,13 +76,15 @@ Android版では、アプリ更新時に古いWebViewのService Workerキャッ�
 
 Safariの「ホーム画面に追加」で使うPWAはそのまま利用できますが、Dynamic Islandには表示できません。Dynamic Island対応版は、Capacitorで同じWeb画面をiOSアプリに組み込み、`ActivityKit`のLive Activityと`WidgetKit`のDynamic Island表示を追加しています。
 
+現在のiOSネイティブ版はiOS 16.1以降を対象にしています。アプリ本体は既存の駐車記録画面をネイティブのCapacitorアプリとして表示し、駐車中・証明書発行済み・精算待ちの状態をLive Activityへ同期します。Dynamic Island対応機種では、駐車位置番号と経過時間をコンパクト表示・展開表示・ロック画面へ表示できます。
+
 ```bash
 npm install
 npm run ios:sync
 npm run ios:open
 ```
 
-Xcodeで`App`スキームを実機またはシミュレータへビルドしてください。iOSアプリ側の`ParkingLiveActivityPlugin.swift`がWeb画面の記録状態をLive Activityへ同期し、`ParkingLiveActivityWidget.swift`が駐車中の経過時間・駐車位置番号・証明書発行済み状態を表示します。精算済みになるとLive Activityを終了します。
+Xcodeでは`ios/App/App.xcodeproj`を開き、`App`スキームを実機またはシミュレータへビルドしてください。iOSアプリ側の`ParkingLiveActivityPlugin.swift`がWeb画面の記録状態をLive Activityへ同期し、`ParkingLiveActivityWidget.swift`が駐車中の経過時間・駐車位置番号・証明書発行済み状態を表示します。精算済みになるとLive Activityを終了します。Dynamic Islandの実機確認には、対応するiPhoneとAppleの署名設定が必要です。
 
 この初版は端末内のタイマー表示が目的なので、サーバーやAPNsは使いません。バックエンドから閉じたアプリへ状態を送る必要が出た場合は、ActivityKitのプッシュ更新用APNsを追加します。実機へのインストール・TestFlight配布にはApple Developer Programと署名設定が必要です。
 
