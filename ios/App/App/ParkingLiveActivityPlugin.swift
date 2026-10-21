@@ -33,19 +33,34 @@ public class ParkingLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             guard let status = record["status"] as? String else { return false }
             return status == "parking" || status == "issued"
         }
-        let activeIds = Set(activeRecords.compactMap { $0["id"] as? String })
+
+        // Dynamic Island has one compact slot. Keep a single Live Activity so
+        // iOS cannot choose an issued record over an actively running timer.
+        // The oldest parking timer is the most urgent one; when there are no
+        // timers, fall back to the oldest certificate waiting for settlement.
+        let parkingRecords = activeRecords
+            .filter { ($0["status"] as? String) == "parking" }
+            .sorted { recordDate($0, key: "startedAt") < recordDate($1, key: "startedAt") }
+        let issuedRecords = activeRecords
+            .filter { ($0["status"] as? String) == "issued" }
+            .sorted { recordDate($0, key: "issuedAt") < recordDate($1, key: "issuedAt") }
+        let selectedRecord = (parkingRecords.first ?? issuedRecords.first)
+        let selectedId = selectedRecord?["id"] as? String
+        let activeIds = selectedId.map { Set([$0]) } ?? []
 
         for activity in Activity<ParkingActivityAttributes>.activities
             where !activeIds.contains(activity.attributes.activityId) {
             await activity.end(using: activity.contentState, dismissalPolicy: .immediate)
         }
 
-        for record in activeRecords {
+        guard let record = selectedRecord else { return }
+
+        do {
             guard
                 let id = record["id"] as? String,
                 let status = record["status"] as? String,
                 let startedAt = isoDate(record["startedAt"] as? String)
-            else { continue }
+            else { return }
 
             let spot = (record["spot"] as? String) ?? ""
             let issuedAt = isoDate(record["issuedAt"] as? String)
@@ -65,17 +80,20 @@ public class ParkingLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                     await duplicate.end(using: state, dismissalPolicy: .immediate)
                 }
             } else {
-                do {
-                    _ = try Activity.request(
-                        attributes: ParkingActivityAttributes(activityId: id),
-                        contentState: state,
-                        pushType: nil
-                    )
-                } catch {
-                    CAPLog.print("Live Activityの開始に失敗しました: \(error.localizedDescription)")
-                }
+                _ = try Activity.request(
+                    attributes: ParkingActivityAttributes(activityId: id),
+                    contentState: state,
+                    pushType: nil
+                )
             }
+        } catch {
+            CAPLog.print("Live Activityの開始・更新に失敗しました: \(error.localizedDescription)")
         }
+    }
+
+    @available(iOS 16.1, *)
+    private func recordDate(_ record: [String: Any], key: String) -> Date {
+        isoDate(record[key] as? String) ?? .distantFuture
     }
 
     @available(iOS 16.1, *)

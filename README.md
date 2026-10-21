@@ -88,6 +88,24 @@ Xcodeでは`ios/App/App.xcodeproj`を開き、`App`スキームを実機また�
 
 この初版は端末内のタイマー表示が目的なので、サーバーやAPNsは使いません。バックエンドから閉じたアプリへ状態を送る必要が出た場合は、ActivityKitのプッシュ更新用APNsを追加します。実機へのインストール・TestFlight配布にはApple Developer Programと署名設定が必要です。
 
+## SwiftUI・Apple純正Liquid Glass版
+
+iOS画面を段階的にSwiftUIへ移行するため、iOSアプリの設定画面から「SwiftUI版を試す」を開けます。iOS 26以降ではApple純正の`.glassEffect`、`GlassEffectContainer`、Glassボタンを使い、iOS 16.1〜25では`ultraThinMaterial`へフォールバックします。既存のCapacitor/WebView画面は標準起動のままなので、現在のlocalStorageデータを壊しません。
+
+```text
+ios/App/App/ParkingNativeGlassView.swift    # SwiftUIのネイティブGlass試作画面
+ios/App/App/ParkingNativePreviewPlugin.swift # WebViewからSwiftUI画面を開くブリッジ
+```
+
+現在の試作画面は、Web版の当日記録を読み込み、記録・精算待ち・履歴の基本操作をネイティブ画面上で確認できます。試作画面内で行った変更は現行Web版へまだ書き戻さないため、実運用データの正式な保存先は従来どおりlocalStorageです。正式移行では次の順で同期処理を追加します。
+
+1. SwiftUI側にlocalStorageのスナップショットを渡す読み込みブリッジを共通化
+2. SwiftUIの追加・発行・精算・編集・削除結果をWebViewへ返す更新ブリッジを追加
+3. 両画面のデータ形式を共通モデルへ整理し、既存のLINE生成処理を共有
+4. 同期確認後にSwiftUIを標準起動へ切り替え、Capacitor画面を段階的に縮小
+
+純正APIの設計はAppleの[`glassEffect`](https://developer.apple.com/documentation/swiftui/view/glasseffect%28_%3Ain%3A%29)と[`GlassEffectContainer`](https://developer.apple.com/documentation/swiftui/glasseffectcontainer)に合わせています。
+
 ## Android APK化
 
 このプロジェクトはCapacitorでAndroidアプリとしてパッケージできます。Android Studio、Android SDK、JDKがインストール済みの環境で実行してください。

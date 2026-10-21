@@ -20,6 +20,9 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		5F04E212B728BC56AD1C0409 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E034EA1EF6D3010A3533AD7C /* SwiftUI.framework */; };
+		6C6A8BDF7F7C4A25B8D4B201 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E034EA1EF6D3010A3533AD7C /* SwiftUI.framework */; };
+		6C6A8BDF7F7C4A25B8D4B202 /* ParkingNativeGlassView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C6A8BDF7F7C4A25B8D4B203 /* ParkingNativeGlassView.swift */; };
+		6C6A8BDF7F7C4A25B8D4B204 /* ParkingNativePreviewPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C6A8BDF7F7C4A25B8D4B205 /* ParkingNativePreviewPlugin.swift */; };
 		81E0E5C93D06BB0FCED2FF8E /* ParkingLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 86A9AE5B7C6A4B73BBAFA1A2 /* ParkingLiveActivity.appex */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		9E18534F1002EC0DE825FCAA /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA0DD5276F29BC5BFD4B498F /* ActivityKit.framework */; };
@@ -67,6 +70,8 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		6C6A8BDF7F7C4A25B8D4B203 /* ParkingNativeGlassView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParkingNativeGlassView.swift; sourceTree = "<group>"; };
+		6C6A8BDF7F7C4A25B8D4B205 /* ParkingNativePreviewPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParkingNativePreviewPlugin.swift; sourceTree = "<group>"; };
 		86A9AE5B7C6A4B73BBAFA1A2 /* ParkingLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ParkingLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		957F89C51FDB7970FD92AC89 /* ParkingBridgeViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ParkingBridgeViewController.swift; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -84,6 +89,7 @@
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
 				2DE91EDC30F645513361C338 /* ActivityKit.framework in Frameworks */,
+				6C6A8BDF7F7C4A25B8D4B201 /* SwiftUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,6 +153,8 @@
 				23DAC7480C5A50C34683CAF9 /* ParkingActivityAttributes.swift */,
 				28F7E30CEA1C5E599571269E /* ParkingLiveActivityPlugin.swift */,
 				957F89C51FDB7970FD92AC89 /* ParkingBridgeViewController.swift */,
+				6C6A8BDF7F7C4A25B8D4B203 /* ParkingNativeGlassView.swift */,
+				6C6A8BDF7F7C4A25B8D4B205 /* ParkingNativePreviewPlugin.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -165,7 +173,6 @@
 				BFFB1CF6FE5333AD3D6D9499 /* ParkingLiveActivityWidget.swift */,
 				3620240B17A82D21A1239827 /* Info.plist */,
 			);
-			name = ParkingLiveActivity;
 			path = ParkingLiveActivity;
 			sourceTree = "<group>";
 		};
@@ -291,6 +298,8 @@
 				FCA56FF85B3EEC1976D18607 /* ParkingActivityAttributes.swift in Sources */,
 				A0790935F152748C88BA707A /* ParkingLiveActivityPlugin.swift in Sources */,
 				1AD1FB3D561C4D5622B4DADF /* ParkingBridgeViewController.swift in Sources */,
+				6C6A8BDF7F7C4A25B8D4B202 /* ParkingNativeGlassView.swift in Sources */,
+				6C6A8BDF7F7C4A25B8D4B204 /* ParkingNativePreviewPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -331,14 +340,15 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7Z3S854FWV;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ParkingLiveActivity/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.akitokosumoto.parkingassist.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -459,6 +469,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7Z3S854FWV;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -481,6 +492,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7Z3S854FWV;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -502,14 +514,15 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7Z3S854FWV;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ParkingLiveActivity/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.akitokosumoto.parkingassist.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};

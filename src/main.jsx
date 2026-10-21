@@ -5,6 +5,7 @@ import './styles.css'
 
 const ParkingLiveActivity = registerPlugin('ParkingLiveActivity')
 const ParkingNotification = registerPlugin('ParkingNotification')
+const ParkingNativePreview = registerPlugin('ParkingNativePreview')
 
 function isNativeIOS() {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'
@@ -24,6 +25,19 @@ function nativeActivityRecords(records) {
       startedAt: record.startedAt,
       issuedAt: record.issuedAt,
     }))
+}
+
+function nativePreviewRecords(records) {
+  return records.map((record) => ({
+    id: record.id,
+    spot: record.spot,
+    status: record.status,
+    startedAt: record.startedAt,
+    issuedAt: record.issuedAt,
+    settledAt: record.settledAt,
+    notePresets: record.notePresets,
+    memo: record.memo,
+  }))
 }
 
 async function syncParkingLiveActivities(records) {
@@ -811,7 +825,7 @@ function StoreSwitchSheet({ options, currentStoreId, onSelect, onClose }) {
   </div>
 }
 
-function SettingsSheet({ settings, onSave, onClose }) {
+function SettingsSheet({ settings, onSave, onClose, onOpenNativePreview }) {
   const dialogRef = useDialogFocus(onClose)
   const [form, setForm] = useState({
     storeA: settings.storeLabels.storeA,
@@ -827,6 +841,7 @@ function SettingsSheet({ settings, onSave, onClose }) {
       <div className="sheet-handle" />
       <div className="sheet-heading"><div><span className="eyebrow">端末内に保存</span><h2 id="settings-sheet-title">店舗名設定</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="閉じる"><Icon name="close" /></button></div>
       <p className="spot-confirm-help">店舗名は公開ページやコードには保存されず、この端末のブラウザ内だけに保存されます。</p>
+      {onOpenNativePreview && <div className="native-preview-callout"><div><strong>iOSネイティブ版（試作）</strong><span>SwiftUIとApple純正Liquid Glassの画面を実機で確認できます。現行Web版はそのまま残ります。</span></div><button type="button" className="secondary-button" onClick={onOpenNativePreview}>SwiftUI版を試す</button></div>}
       <form onSubmit={submit}>
         <div className="form-grid"><label className="field-label">杉栄店の表示名<input data-dialog-initial-focus className="text-input" type="text" value={form.storeA} onChange={(event) => update('storeA', event.target.value)} placeholder="例：杉栄店" /></label><label className="field-label">名東本通店の表示名<input className="text-input" type="text" value={form.storeB} onChange={(event) => update('storeB', event.target.value)} placeholder="例：名東本通店" /></label></div>
         <div className="sheet-footer"><button type="button" className="secondary-button" onClick={onClose}>キャンセル</button><button type="submit" className="primary-button">店舗名を保存</button></div>
@@ -1101,14 +1116,19 @@ function App() {
 
   useEffect(() => {
     let hideTimer
+    const scrollContainer = document.querySelector('.main-content')
     const handleScroll = () => {
+      const activeElement = document.activeElement
+      if (activeElement instanceof HTMLButtonElement) activeElement.blur()
       setIsScrolling(true)
       window.clearTimeout(hideTimer)
       hideTimer = window.setTimeout(() => setIsScrolling(false), 180)
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
+    scrollContainer?.addEventListener('scroll', handleScroll, { passive: true })
     return () => {
       window.removeEventListener('scroll', handleScroll)
+      scrollContainer?.removeEventListener('scroll', handleScroll)
       window.clearTimeout(hideTimer)
     }
   }, [])
@@ -1141,6 +1161,7 @@ function App() {
     setActiveView(view)
     setIsScrolling(false)
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.querySelector('.main-content')?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }
   const updateRecord = (id, patch) => setRecords((current) => current.map((record) => record.id === id ? { ...record, ...patch } : record))
   const updateWorkStore = (storeId, patch) => setWorkReport((current) => ({ ...current, stores: { ...current.stores, [storeId]: { ...current.stores[storeId], ...patch } } }))
@@ -1329,6 +1350,19 @@ function App() {
     notify('クリップボードにコピーしました')
   }
 
+  const openNativePreview = async () => {
+    if (!isNativeIOS()) return
+    try {
+      await ParkingNativePreview.open({
+        storeLabel: activeStoreConfig?.label || '名東本通店',
+        layoutID: activeStoreConfig?.parkingLayout || 'meito',
+        records: nativePreviewRecords(records),
+      })
+    } catch {
+      notify('SwiftUI版を開けませんでした')
+    }
+  }
+
   const tabItems = [
     { id: 'record', label: '記録' },
     { id: 'work', label: '勤務報告' },
@@ -1365,7 +1399,7 @@ function App() {
     {editRecord && <EditModal record={records.find((record) => record.id === editRecord.id) || editRecord} onSave={saveEdit} onDelete={deleteRecord} onClose={() => setEditRecord(null)} />}
     {deleteAllOpen && <DeleteAllDialog count={settledRecords.length} onConfirm={deleteAllSettledRecords} onClose={() => setDeleteAllOpen(false)} />}
     {storeSelectorOpen && activeStoreConfig && <StoreSwitchSheet options={operationStoreOptions} currentStoreId={activeStoreConfig.id} onSelect={selectOperationStore} onClose={() => setStoreSelectorOpen(false)} />}
-    {settingsOpen && <SettingsSheet settings={settings} onSave={saveSettings} onClose={() => setSettingsOpen(false)} />}
+    {settingsOpen && <SettingsSheet settings={settings} onSave={saveSettings} onClose={() => setSettingsOpen(false)} onOpenNativePreview={isNativeIOS() ? openNativePreview : undefined} />}
     {toast && <div className="toast" role="status">{toast}</div>}
   </div>
 }
