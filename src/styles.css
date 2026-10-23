@@ -137,7 +137,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .parking-area .area-heading { order: 1; }
 .parking-layout { order: 3; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .sugie-parking-layout { position: relative; order: 3; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); gap: 8px; min-height: 520px; padding: 14px; border: 1px solid #c3cad6; border-radius: 18px; background: #edf0f5; overflow: hidden; }
-.sugie-parking-layout::before { position: absolute; inset: 12px 21%; content: ''; border: 2px solid #b3bbc9; border-radius: 10px; background: #f7f8fb; pointer-events: none; }
 .parking-column { display: flex; flex-direction: column; gap: 8px; }
 .parking-column.left { padding-top: 0; }
 .parking-column.left .spot-button:nth-child(3) { margin-top: 17px; }
@@ -382,7 +381,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 :root[data-theme='dark'] .line-button:hover { background: #5a7db5; }
 :root[data-theme='dark'] .parking-area { background: #17181d; }
 :root[data-theme='dark'] .sugie-parking-layout { border-color: #4b5364; background: #20242c; }
-:root[data-theme='dark'] .sugie-parking-layout::before { border-color: #4b5364; background: #171a20; }
 :root[data-theme='dark'] .record-row.is-over-limit { border-color: #856b2e; background: #292516; }
 :root[data-theme='dark'] .status-badge.parking { background: #204d39; color: #b4f1c8; }
 :root[data-theme='dark'] .store-choice-button:hover { border-color: #6f91c7; background: #202b40; }
@@ -439,7 +437,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .spot-button strong { font-size: 22px; }
   .spot-button small { font-size: 8px; }
   .sugie-parking-layout { min-height: 470px; gap: 5px; padding: 10px; border-radius: 15px; }
-  .sugie-parking-layout::before { inset: 9px 20%; }
   .sugie-parking-layout .spot-button { border-radius: 7px; }
   .sugie-parking-layout .spot-button strong { font-size: 18px; }
   .store-start-view { padding: 38px 0 26px; }
