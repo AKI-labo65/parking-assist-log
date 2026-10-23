@@ -6,7 +6,6 @@ import userEvent from '@testing-library/user-event/dist/esm/index.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   App,
-  buildImmediateLineText,
   buildWorkLineText,
   createDefaultWorkReport,
   formatDateTimeInput,
@@ -182,16 +181,38 @@ describe('generated LINE report consistency', () => {
     expect(screen.getByLabelText('LINE用テキスト').value).toContain('駐車位置番号:1番')
   })
 
-  it('also puts immediate-report memo items on separate lines', () => {
+  it('keeps over-limit records in history without individual reporting or batch inclusion', async () => {
+    const now = Date.now()
+    const withinLimit = makeSettledRecord({
+      startedAt: new Date(now - 200_000).toISOString(),
+      issuedAt: new Date(now - 110_000).toISOString(),
+    })
     const record = makeSettledRecord({
-      startedAt: new Date(Date.now() - 200_000).toISOString(),
-      issuedAt: new Date(Date.now() - 100_000).toISOString(),
+      id: 'over-limit',
+      spot: '2',
+      startedAt: new Date(now - 200_000).toISOString(),
+      issuedAt: new Date(now - 88_000).toISOString(),
       notePresets: ['サービス券投入トラブル', '操作ミス'],
     })
-    const text = buildImmediateLineText(record, '第二店舗')
+    seedApp(withinLimit)
+    localStorage.setItem(`parking-assist-records:${getDateKey()}`, JSON.stringify([withinLimit, record]))
+    const user = userEvent.setup()
+    render(<App />)
 
-    expect(text).toContain('＊サービス券投入トラブル\n操作ミス')
-    expect(text).not.toContain('精算＊')
+    await user.click(screen.getAllByRole('button', { name: /履歴/ })[0])
+
+    expect(screen.getByText('90秒超')).not.toBeNull()
+    expect(screen.getByText('112秒')).not.toBeNull()
+    expect(screen.getByText('2番')).not.toBeNull()
+    expect(screen.queryByRole('button', { name: '都度報告' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /まとめて報告文を生成/ }))
+    const text = screen.getByLabelText('LINE用テキスト').value
+
+    expect(text).toContain('駐車位置番号:1番')
+    expect(text).toContain('駐車→証明書発行90秒')
+    expect(text).not.toContain('駐車位置番号:2番')
+    expect(text).not.toContain('サービス券投入トラブル')
   })
 
   it('clears stale output after editing and regenerates with the new spot', async () => {
@@ -241,6 +262,7 @@ describe('work schedule recovery', () => {
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: '名東本通店で本日の稼働を開始' }))
+    await user.click(screen.getByRole('button', { name: 'あとで見る' }))
     await user.click(screen.getAllByRole('button', { name: '勤務報告' })[0])
     await user.click(screen.getByRole('button', { name: '18:00 勤務終了' }))
     expect(screen.getByRole('heading', { name: '18:00 勤務終了を先に記録しますか？' })).not.toBeNull()
