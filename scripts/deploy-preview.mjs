@@ -26,7 +26,7 @@ run('npm', ['test'])
 
 const workspace = mkdtempSync(join(tmpdir(), 'parking-assist-preview-'))
 const output = join(workspace, 'site')
-run('npm', ['run', 'build:preview', '--', '--outDir', output], { env: { VITE_BASE_PATH: '/parking-assist-log-preview/' } })
+run('npm', ['run', 'build:preview', '--', '--outDir', output, '--emptyOutDir'], { env: { VITE_BASE_PATH: '/parking-assist-log-preview/' } })
 writeFileSync(join(output, '.nojekyll'), '')
 const indexPath = join(output, 'index.html')
 writeFileSync(indexPath, readFileSync(indexPath, 'utf8').replace('<title>精算機補助</title>', '<meta name="robots" content="noindex, nofollow" />\n    <title>精算機補助｜テスト版</title>'))
@@ -63,8 +63,13 @@ run('git', ['push', '-u', 'origin', 'gh-pages'], { cwd: checkout })
 const pages = run('gh', ['api', `repos/${repository}/pages`], { capture: true, allowFailure: true })
 if (!pages.ok) {
   if (!pages.error?.includes('404')) throw new Error(pages.error || 'Unable to inspect preview Pages')
-  run('gh', ['api', '--method', 'POST', `repos/${repository}/pages`, '-f', 'source[branch]=gh-pages', '-f', 'source[path]=/'], { capture: true })
-} else if (JSON.parse(pages.text).source?.branch !== 'gh-pages') {
+  const created = run('gh', ['api', '--method', 'POST', `repos/${repository}/pages`, '-f', 'source[branch]=gh-pages', '-f', 'source[path]=/'], { capture: true, allowFailure: true })
+  // Pushing a new gh-pages branch can enable Pages before its read API catches
+  // up. A concurrent automatic setup returns 409; verify its final settings.
+  if (!created.ok && !created.error?.includes('409')) throw new Error(created.error || 'Unable to enable preview Pages')
+}
+const pageConfig = JSON.parse(run('gh', ['api', `repos/${repository}/pages`], { capture: true }).text)
+if (pageConfig.source?.branch !== 'gh-pages') {
   throw new Error('Preview Pages uses an unexpected source branch; inspect its settings before retrying.')
 }
 console.log(`Preview publication requested: ${previewUrl}\nSource commit: ${sourceCommit}\nBuild directory: ${output}`)
