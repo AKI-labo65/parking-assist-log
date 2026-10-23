@@ -241,6 +241,7 @@ describe('work schedule recovery', () => {
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: '名東本通店で本日の稼働を開始' }))
+    await user.click(screen.getByRole('button', { name: 'あとで見る' }))
     await user.click(screen.getAllByRole('button', { name: '勤務報告' })[0])
     await user.click(screen.getByRole('button', { name: '18:00 勤務終了' }))
     expect(screen.getByRole('heading', { name: '18:00 勤務終了を先に記録しますか？' })).not.toBeNull()

@@ -501,3 +501,87 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+.preview-banner { position: sticky; top: 0; z-index: 30; height: 36px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 10px; background: var(--amber); color: var(--amber-text); font-size: 11px; }
+.preview-banner strong { font-size: 12px; }
+.is-preview .app-header { top: 36px; }
+.tutorial-help-button { border-width: 1px; font-size: 18px; }
+.tutorial-backdrop { align-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgba(14, 24, 42, .62); }
+.tutorial-welcome, .tutorial-dialog { width: min(100%, 600px); max-height: calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 80px rgba(0, 0, 0, .22); }
+.tutorial-welcome { max-width: 420px; padding: 30px 26px 22px; display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+.tutorial-welcome h2 { margin: 3px 0 0; font-size: 23px; letter-spacing: -.04em; }
+.tutorial-welcome p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.8; }
+.tutorial-welcome > small { color: var(--muted); font-size: 11px; text-align: center; }
+.tutorial-kicker { color: var(--blue-text); font-size: 12px; font-weight: 800; }
+.tutorial-safe-note { margin: 3px 0 6px; padding: 12px; border-radius: 12px; background: var(--mint); color: var(--mint-text); font-size: 12px; line-height: 1.7; }
+.tutorial-header { min-height: 62px; padding: 8px 16px 0 24px; display: flex; align-items: center; justify-content: space-between; }
+.tutorial-header > div { display: flex; align-items: center; gap: 10px; }
+.tutorial-sample-label { padding: 4px 9px; border-radius: 6px; background: var(--mint); color: var(--mint-text); font-size: 10px; font-weight: 800; }
+.tutorial-progress { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); margin: 4px 24px 20px; padding: 0; gap: 6px; }
+.tutorial-progress li { display: flex; align-items: center; justify-content: center; gap: 6px; padding-bottom: 12px; border-bottom: 3px solid var(--surface-container); color: var(--muted); font-size: 11px; font-weight: 800; }
+.tutorial-progress li span { width: 21px; height: 21px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-container); font-size: 10px; }
+.tutorial-progress li.reached { border-color: var(--navy); color: var(--blue-text); }
+.tutorial-progress li.reached span { background: var(--blue-pale); color: var(--blue-text); }
+.tutorial-instruction { padding: 0 24px 20px; }
+.tutorial-step-count { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.tutorial-instruction h2 { margin: 8px 0 10px; font-size: clamp(19px, 4.8vw, 25px); line-height: 1.4; letter-spacing: -.035em; }
+.tutorial-instruction p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.tutorial-demo { margin: 0 24px 18px; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface-low); }
+.tutorial-demo-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 42px; padding: 8px 14px; }
+.tutorial-demo-heading strong { color: var(--blue-text); font-size: 12px; }
+.tutorial-demo-heading > span { color: var(--muted); font-size: 9px; }
+.tutorial-demo-tabs { display: grid; grid-template-columns: repeat(3, 1fr); padding-inline: 12px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.tutorial-demo-tabs span { padding: 11px 2px 9px; border-bottom: 2px solid transparent; color: var(--muted); text-align: center; font-size: 11px; font-weight: 800; }
+.tutorial-demo-tabs .selected { border-color: var(--navy); color: var(--blue-text); }
+.tutorial-demo-content { padding: 18px; }
+.tutorial-try-hint { margin: 2px 0 14px; color: var(--blue-text); text-align: center; font-size: 11px; line-height: 1.7; }
+.tutorial-demo-content > .issue-button + .tutorial-try-hint, .tutorial-settle-row + .tutorial-try-hint { margin: 16px 0 0; }
+.tutorial-grid { max-height: 240px; overflow-y: auto; padding: 4px; border-radius: 12px; border: 2px solid var(--navy); outline: 3px solid var(--blue-pale); outline-offset: 2px; }
+.tutorial-grid .parking-layout { gap: 8px; }
+.tutorial-grid .parking-column { gap: 6px; }
+.tutorial-grid .spot-button { min-height: 48px; }
+.tutorial-grid .sugie-parking-layout { min-height: 380px; }
+.tutorial-demo .unknown-start-button { min-height: 44px; font-size: 12px; font-weight: 800; }
+.tutorial-target { outline: 3px solid var(--blue-pale); outline-offset: 4px; }
+.tutorial-car { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+.tutorial-car > strong { color: var(--blue-text); font-size: 25px; font-weight: 900; }
+.tutorial-time { margin-left: auto; color: var(--blue-text); font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.tutorial-time small { margin-left: 5px; font-size: 12px; }
+.tutorial-demo .issue-button, .tutorial-confirm > .primary-button, .tutorial-demo .line-button { width: 100%; }
+.tutorial-confirm { margin-top: 22px; padding-top: 18px; display: grid; gap: 12px; border-top: 1px solid var(--line); }
+.tutorial-settle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.tutorial-settle-row > div { display: grid; gap: 8px; }
+.tutorial-settle-row strong { color: var(--blue-text); font-size: 30px; }
+.tutorial-settle-row small { color: var(--muted); font-size: 10px; }
+.tutorial-report-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tutorial-report-options button { min-height: 42px; padding: 7px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 800; }
+.tutorial-report-options button[aria-pressed='true'] { border-color: var(--navy); background: var(--blue-pale); color: var(--blue-text); }
+.tutorial-report-rule { padding: 20px 0; }
+.tutorial-report-rule strong { color: var(--blue-text); font-size: 13px; }
+.tutorial-report-rule p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.tutorial-report-output { margin-top: 20px; display: grid; gap: 8px; color: var(--muted); font-size: 11px; }
+.tutorial-report-output textarea { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; line-height: 1.7; resize: vertical; }
+.tutorial-report-output small { font-size: 11px; line-height: 1.7; }
+.tutorial-footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 24px 20px; border-top: 1px solid var(--line); background: var(--surface); }
+.tutorial-footer > div { display: flex; gap: 8px; }
+.tutorial-footer button { min-height: 44px; padding-inline: 14px; font-size: 12px; }
+.tutorial-footer button:disabled { opacity: .4; cursor: default; }
+.tutorial-dialog button:focus-visible, .tutorial-welcome button:focus-visible, .tutorial-help-button:focus-visible { outline: 3px solid #76a8ef; outline-offset: 3px; }
+@media (max-width: 560px) {
+  .header-actions { gap: 3px; }
+  .header-actions .theme-toggle, .header-actions .help-button, .header-actions .settings-button { min-width: 36px; width: 36px; height: 40px; }
+  .brand-block { max-width: calc(100% - 182px); }
+  .tutorial-backdrop { padding-inline: 10px; }
+  .tutorial-welcome { padding: 24px 20px 20px; }
+  .tutorial-header { padding-left: 18px; }
+  .tutorial-progress { margin-inline: 18px; }
+  .tutorial-instruction { padding-inline: 18px; }
+  .tutorial-demo { margin-inline: 18px; }
+  .tutorial-demo-content { padding: 14px; }
+  .tutorial-footer { padding: 14px 12px 16px; }
+  .tutorial-footer button { padding-inline: 12px; }
+}
+@media (max-width: 400px) {
+  .header-date { display: none; }
+  .brand-block { max-width: calc(100% - 122px); }
+}
