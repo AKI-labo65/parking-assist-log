@@ -40,7 +40,7 @@ describe('tutorial', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '使い方ガイドを開く' }))
   })
 
-  it('practices unknown-number start, correction, settlement, and both report examples without saving records', async () => {
+  it('practices unknown-number start, correction, settlement, and batch reporting without saving records', async () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('button', { name: '杉栄店で本日の稼働を開始' }))
@@ -59,9 +59,7 @@ describe('tutorial', () => {
     expect(screen.getByRole('dialog', { name: '履歴から報告文を作成' })).not.toBeNull()
     await user.click(within(guide).getByRole('button', { name: 'まとめて報告文を生成' }))
     expect(within(guide).getByRole('textbox').value).toContain('24秒')
-    await user.click(within(guide).getByRole('button', { name: '90秒超の例' }))
-    await user.click(within(guide).getByRole('button', { name: '都度報告' }))
-    expect(within(guide).getByRole('textbox').value).toContain('112秒')
+    expect(within(guide).queryByRole('button', { name: '都度報告' })).toBeNull()
     await user.click(within(guide).getByRole('button', { name: 'ガイドを終了' }))
     expect(localStorage.getItem(`${STORAGE_KEYS.records}${getDateKey()}`)).toBe('[]')
     expect(localStorage.getItem(`${STORAGE_KEYS.work}${getDateKey()}`)).toBe(workBefore)

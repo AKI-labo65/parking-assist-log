@@ -553,9 +553,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .tutorial-settle-row > div { display: grid; gap: 8px; }
 .tutorial-settle-row strong { color: var(--blue-text); font-size: 30px; }
 .tutorial-settle-row small { color: var(--muted); font-size: 10px; }
-.tutorial-report-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.tutorial-report-options button { min-height: 42px; padding: 7px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 800; }
-.tutorial-report-options button[aria-pressed='true'] { border-color: var(--navy); background: var(--blue-pale); color: var(--blue-text); }
 .tutorial-report-rule { padding: 20px 0; }
 .tutorial-report-rule strong { color: var(--blue-text); font-size: 13px; }
 .tutorial-report-rule p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }

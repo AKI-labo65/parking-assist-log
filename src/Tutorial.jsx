@@ -4,7 +4,7 @@ const STEPS = [
   { title: '番号をタップして計測開始', description: '車が停まったら、その番号をタップ。番号が見えないときは「番号未入力でタイマー開始」を使えます。', tab: 'record', action: '次へ' },
   { title: '証明書を発行したら記録', description: '「証明書発行＋番号入力」を押し、利用者さまに確認した番号で確定します。開始時の番号もここで直せます。', tab: 'record', action: '次へ' },
   { title: '精算待ちから精算を記録', description: '発行後の車は「精算待ち」に移ります。実際の精算が終わったら、その車の「精算」を押します。', tab: 'issued', action: '次へ' },
-  { title: '履歴から報告文を作成', description: '駐車から証明書発行までの時間で報告方法が変わります。下の2つの例を切り替えて確認できます。', tab: 'history', action: 'ガイドを終了' },
+  { title: '履歴から報告文を作成', description: '精算済み・90秒以内の記録をまとめて報告できます。生成した文面をコピーしてLINEで送信します。', tab: 'history', action: 'ガイドを終了' },
 ]
 
 export function TutorialWelcome({ dialogRef, onStart, onClose }) {
@@ -25,7 +25,6 @@ export function Tutorial({ dialogRef, onClose, parkingLayout, storeLabel, Parkin
   const [step, setStep] = useState(0)
   const [spot, setSpot] = useState('1')
   const [confirming, setConfirming] = useState(false)
-  const [overLimit, setOverLimit] = useState(false)
   const [reportVisible, setReportVisible] = useState(false)
   const headingRef = useRef(null)
   const previousStep = useRef(step)
@@ -48,7 +47,7 @@ export function Tutorial({ dialogRef, onClose, parkingLayout, storeLabel, Parkin
     setSpot(value || '')
     setStep(1)
   }
-  const reportText = `【${storeLabel}】\nお疲れ様です。\n${overLimit ? '1分30秒を超えた件です。' : '1分30秒以内の件です。'}\n駐車位置番号:${spot || '1'}番\n駐車→証明書発行${overLimit ? '112' : '24'}秒\n\n（ガイド用サンプル・送信されません）`
+  const reportText = `【${storeLabel}】\nお疲れ様です。\n1分30秒以内の件です。\n駐車位置番号:${spot || '1'}番\n駐車→証明書発行24秒\n\n（ガイド用サンプル・送信されません）`
 
   return <div className="modal-backdrop tutorial-backdrop">
     <section ref={dialogRef} className="tutorial-dialog" role="dialog" aria-modal="true" aria-labelledby="tutorial-title" aria-describedby="tutorial-description" tabIndex="-1">
@@ -85,9 +84,8 @@ export function Tutorial({ dialogRef, onClose, parkingLayout, storeLabel, Parkin
           <p className="tutorial-try-hint">↑「精算」を押すと、履歴へ進みます</p>
         </div>}
         {step === 3 && <div className="tutorial-demo-content">
-          <div className="tutorial-report-options" aria-label="報告パターンの例"><button type="button" aria-pressed={!overLimit} onClick={() => { setOverLimit(false); setReportVisible(false) }}>90秒以内の例</button><button type="button" aria-pressed={overLimit} onClick={() => { setOverLimit(true); setReportVisible(false) }}>90秒超の例</button></div>
-          <div className="tutorial-report-rule"><strong>{overLimit ? '112秒 → 精算後に都度報告' : '24秒 → 勤務終了後にまとめて報告'}</strong><p>{overLimit ? '履歴の各記録にある「都度報告」から、1件ずつ報告文を生成します。' : '勤務報告で「18:00 終了」を記録してから、履歴の「まとめて報告文を生成」を押します。'}</p></div>
-          <button type="button" className="line-button tutorial-target" onClick={() => setReportVisible(true)}>{overLimit ? '都度報告' : 'まとめて報告文を生成'}</button>
+          <div className="tutorial-report-rule"><strong>24秒 → 勤務終了後にまとめて報告</strong><p>履歴の「まとめて報告文を生成」を押します。90秒を超えた記録も履歴で確認できますが、まとめ報告には含まれません。</p></div>
+          <button type="button" className="line-button tutorial-target" onClick={() => setReportVisible(true)}>まとめて報告文を生成</button>
           {reportVisible && <label className="tutorial-report-output">サンプルの報告文<textarea readOnly value={reportText} rows="5" /><small>実際は文面をコピーして、LINEに貼り付けて送信します。</small></label>}
         </div>}
       </div>
