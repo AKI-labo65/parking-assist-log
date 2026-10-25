@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import React from 'react'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event/dist/esm/index.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -11,6 +11,7 @@ import {
   formatDateTimeInput,
   getDateKey,
   getRestartRule,
+  loadWorkReport,
   parseDateTimeInput,
   resolveEditedDateTimeInput,
   shouldRestartForStore,
@@ -50,7 +51,7 @@ function seedApp(record = makeSettledRecord(), { ended = true } = {}) {
   const dateKey = getDateKey()
   const workReport = createDefaultWorkReport()
   workReport.activeStoreId = 'storeB'
-  if (ended) workReport.schedule.endedAt = new Date().toISOString()
+  if (ended) workReport.stores.storeB.schedule.endedAt = new Date().toISOString()
   localStorage.setItem(`parking-assist-records:${dateKey}`, JSON.stringify([record]))
   localStorage.setItem(`parking-assist-work:${dateKey}`, JSON.stringify(workReport))
 }
@@ -79,34 +80,227 @@ describe('record time editing', () => {
   })
 })
 
+describe('parking entry times', () => {
+  function openApp() {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 9, 25, 10, 30, 45, 789))
+    seedApp()
+    localStorage.setItem(`parking-assist-records:${getDateKey()}`, '[]')
+    localStorage.setItem('parking-assist-tutorial:v1', 'skipped')
+    return render(<App />)
+  }
+
+  function savedRecords() {
+    return JSON.parse(localStorage.getItem(`parking-assist-records:${getDateKey()}`))
+  }
+
+  it('records the exact tap time for numbered and unknown starts and displays both entry times', () => {
+    openApp()
+    fireEvent.click(screen.getByRole('button', { name: '1番・新しく記録開始', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: /番号未入力でタイマー開始/ }))
+
+    expect(savedRecords()).toMatchObject([
+      { spot: '1', startedAt: new Date().toISOString(), status: 'parking' },
+      { spot: null, unknownLabel: '1', startedAt: new Date().toISOString(), status: 'parking' },
+    ])
+    expect(screen.getAllByText('10:30')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: '1番の入庫時間を修正' })).not.toBeNull()
+    expect(screen.getByRole('button', { name: '番号未入力 #1の入庫時間を修正' })).not.toBeNull()
+  })
+
+  it('keeps the entry time through spot confirmation, issuance, settlement, and reload', () => {
+    const view = openApp()
+    fireEvent.click(screen.getByRole('button', { name: '1番・新しく記録開始', exact: true }))
+    const entryTime = savedRecords()[0].startedAt
+    act(() => vi.advanceTimersByTime(20_000))
+    fireEvent.click(screen.getByRole('button', { name: '証明書発行＋番号入力' }))
+    fireEvent.change(screen.getByLabelText('駐車位置番号（入力必須・数字／英字）'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: '3番で発行確定' }))
+    fireEvent.click(screen.getAllByRole('button', { name: /発行済み・精算待ち/ })[0])
+    expect(screen.getByText('10:30')).not.toBeNull()
+    expect(screen.getByRole('button', { name: '3番の入庫時間を修正' })).not.toBeNull()
+    expect(screen.getByText('20秒')).not.toBeNull()
+    act(() => vi.advanceTimersByTime(60_000))
+    fireEvent.click(screen.getByRole('button', { name: '精算', exact: true }))
+    fireEvent.click(screen.getAllByRole('button', { name: /履歴/ })[0])
+    expect(screen.getByText('10:30')).not.toBeNull()
+    expect(savedRecords()[0]).toMatchObject({ spot: '3', startedAt: entryTime, status: 'settled' })
+
+    view.unmount()
+    render(<App />)
+    fireEvent.click(screen.getAllByRole('button', { name: /履歴/ })[0])
+    expect(screen.getByText('10:30')).not.toBeNull()
+    expect(savedRecords()[0].startedAt).toBe(entryTime)
+    fireEvent.click(screen.getByRole('button', { name: /まとめて報告文を生成/ }))
+    expect(screen.getByLabelText('LINE用テキスト').value).toContain('駐車→証明書発行20秒')
+  })
+
+  it('focuses entry time when tapped, preserves untouched milliseconds, and recalculates after a correction', () => {
+    openApp()
+    fireEvent.click(screen.getByRole('button', { name: '1番・新しく記録開始', exact: true }))
+    const original = savedRecords()[0].startedAt
+    fireEvent.click(screen.getByRole('button', { name: '1番の入庫時間を修正' }))
+    expect(document.activeElement).toBe(screen.getByLabelText('入庫時間'))
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(savedRecords()[0].startedAt).toBe(original)
+    fireEvent.click(screen.getByRole('button', { name: '1番の入庫時間を修正' }))
+    fireEvent.change(screen.getByLabelText('入庫時間'), { target: { value: '2026-10-25T10:30:00' } })
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(screen.getByText('10:30')).not.toBeNull()
+    expect(document.querySelector('.active-time').textContent).toBe('45秒00:45')
+    expect(savedRecords()[0].startedAt).toBe(new Date(2026, 9, 25, 10, 30, 0).toISOString())
+  })
+
+  it('rejects a future entry time and cancels without changing an unknown-number record', () => {
+    openApp()
+    fireEvent.click(screen.getByRole('button', { name: /番号未入力でタイマー開始/ }))
+    const original = savedRecords()[0]
+    const entryButton = screen.getByRole('button', { name: '番号未入力 #1の入庫時間を修正' })
+    entryButton.focus()
+    fireEvent.click(entryButton)
+    fireEvent.change(screen.getByLabelText('入庫時間'), { target: { value: '2026-10-25T10:31:00' } })
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(screen.getByRole('alert').textContent).toContain('現在以前')
+    expect(savedRecords()[0]).toEqual(original)
+    fireEvent.click(screen.getByRole('button', { name: 'キャンセル' }))
+    expect(savedRecords()[0]).toEqual(original)
+    expect(screen.getByRole('button', { name: '番号未入力 #1の入庫時間を修正' })).toBe(document.activeElement)
+  })
+
+  it('displays legacy start times and updates reporting after an entry-time correction', () => {
+    openApp()
+    cleanup()
+    seedApp()
+    render(<App />)
+    const original = savedRecords()[0]
+    fireEvent.click(screen.getAllByRole('button', { name: /履歴/ })[0])
+    expect(screen.getByRole('button', { name: '1番の入庫時間を修正' }).querySelector('time').textContent).toBe('10:30')
+    fireEvent.click(screen.getByRole('button', { name: /まとめて報告文を生成/ }))
+    expect(screen.getByLabelText('LINE用テキスト').value).toContain('駐車→証明書発行20秒')
+    fireEvent.click(screen.getByRole('button', { name: '1番の入庫時間を修正' }))
+    const entryInput = screen.getByLabelText('入庫時間')
+    expect(document.activeElement).toBe(entryInput)
+    fireEvent.change(entryInput, { target: { value: '2026-10-25T10:30:30' } })
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(screen.getByRole('alert').textContent).toContain('証明書発行・精算時刻以前')
+    expect(savedRecords()[0]).toEqual(original)
+    fireEvent.change(entryInput, { target: { value: '2026-10-25T10:28:00' } })
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(screen.queryByLabelText('LINE用テキスト')).toBeNull()
+    expect(screen.getByText('90秒超')).not.toBeNull()
+    expect(savedRecords()[0]).toMatchObject({ issuedAt: original.issuedAt, settledAt: original.settledAt })
+    fireEvent.click(screen.getByRole('button', { name: /まとめて報告文を生成/ }))
+    expect(screen.getByLabelText('LINE用テキスト').value).not.toContain('駐車位置番号:1番')
+  })
+})
+
 describe('work report text', () => {
   it('uses configured store labels and prints the closing only once', () => {
     const report = createDefaultWorkReport()
+    report.activeStoreId = 'storeA'
     report.stores.storeA.arrivalAt = new Date().toISOString()
     report.stores.storeA.inspectionSeconds = '18'
-    report.schedule.endedAt = new Date().toISOString()
+    report.stores.storeA.schedule.endedAt = new Date().toISOString()
 
     const text = buildWorkLineText(report, storeConfigs)
 
     expect(text).toContain('【第一店舗】')
+    expect(text).not.toContain('【第二店舗】')
     expect(text).not.toContain('【undefined】')
     expect(text.match(/お疲れ様でした。/g)).toHaveLength(1)
+  })
+
+  it('reports all three shifts and uses adjusted times for breaks and the final closing', () => {
+    const report = createDefaultWorkReport()
+    report.activeStoreId = 'storeA'
+    const schedule = report.stores.storeA.schedule
+    const at = (hours, minutes = 0) => new Date(2026, 9, 23, hours, minutes).toISOString()
+    Object.assign(schedule, { startedAt: at(10), breakAt: at(12), resumedAt: at(15), eveningBreakAt: at(18, 15), eveningResumedAt: at(19, 15), endedAt: at(21), parkingTickets: '30' })
+    report.stores.storeB.arrivalAt = at(8, 30)
+    report.stores.storeB.schedule.finishMemo = '別店舗のメモ'
+
+    const text = buildWorkLineText(report, storeConfigs)
+
+    expect(text).toContain('10:00配置つきました。\n業務開始いたします。')
+    expect(text).toContain('12:00になりましたので\n配置一時解除します。')
+    expect(text).toContain('15:00配置つきました。\n業務再開いたします。')
+    expect(text).toContain('18:15になりましたので\n配置一時解除します。')
+    expect(text).toContain('19:15配置つきました。\n業務再開いたします。')
+    expect(text).toContain('21:00…配置解除,店舗挨拶完了')
+    expect(text).toContain('店舗駐車券預り30枚')
+    expect(text).not.toContain('18:00…配置解除')
+    expect(text).not.toContain('第二店舗')
+    expect(text).not.toContain('別店舗のメモ')
+    expect(text.match(/お疲れ様でした。/g)).toHaveLength(1)
+  })
+
+  it.each([
+    ['storeA', 'vehicle', '車両ありで確認', true],
+    ['storeB', 'vehicle', '車両ありで確認', true],
+    ['storeA', 'noVehicle', '車両なし・鉄板なし（スタート画面のみ）', false],
+    ['storeB', 'noVehicle', '車両なし・鉄板で確認', true],
+  ])('reports the inspection method for %s with %s', (storeId, mode, method, hasSettlement) => {
+    const report = createDefaultWorkReport()
+    report.activeStoreId = storeId
+    Object.assign(report.stores[storeId], { arrivalAt: new Date().toISOString(), inspectionMode: mode, inspectionSeconds: '7', settlementSeconds: '9' })
+
+    const text = buildWorkLineText(report, storeConfigs)
+
+    expect(text).toContain(method)
+    expect(text).toContain('スタート画面...7秒')
+    expect(text.includes('精算後の画面...9秒')).toBe(hasSettlement)
   })
 })
 
 describe('restart schedule', () => {
-  it('requires a restart on Wednesday and Sunday', () => {
-    expect(getRestartRule(new Date(2026, 7, 19))).toMatchObject({ id: 'wednesday', required: true })
-    expect(getRestartRule(new Date(2026, 7, 23))).toMatchObject({ id: 'sunday', required: true })
+  it.each([19, 20, 21, 22, 23, 24, 25])('requires a morning restart every day, including low inspection times (October %s)', (day) => {
+    const rule = getRestartRule(new Date(2026, 9, day))
+    expect(rule).toMatchObject({ id: 'daily', required: true })
+    expect(shouldRestartForStore(rule, { inspectionSeconds: '7' })).toBe(true)
+    expect(shouldRestartForStore(rule, { inspectionSeconds: '' })).toBe(true)
+  })
+})
+
+describe('work report migration', () => {
+  it('does not copy a partial store report into the other store', () => {
+    const startedAt = new Date(2026, 9, 23, 10).toISOString()
+    localStorage.setItem(`parking-assist-work:${getDateKey()}`, JSON.stringify({ version: 2, activeStoreId: 'storeB', stores: { storeB: { inspectionSeconds: '5', schedule: { startedAt } } } }))
+
+    const report = loadWorkReport(getDateKey())
+
+    expect(report.stores.storeB.schedule.startedAt).toBe(startedAt)
+    expect(report.stores.storeA.schedule.startedAt).toBeNull()
+    expect(report.stores.storeA.inspectionSeconds).toBe('')
   })
 
-  it('requires a restart on Saturday only when initial inspection is at least 8 seconds', () => {
-    const rule = getRestartRule(new Date(2026, 7, 22))
-    expect(rule).toMatchObject({ id: 'saturday', required: false })
-    expect(shouldRestartForStore(rule, { inspectionSeconds: '7' })).toBe(false)
-    expect(shouldRestartForStore(rule, { inspectionSeconds: '8' })).toBe(true)
-    expect(shouldRestartForStore(rule, { inspectionSeconds: '12' })).toBe(true)
-    expect(shouldRestartForStore(rule, { inspectionSeconds: '7', restartStartedAt: '2026-08-22T01:00:00.000Z' })).toBe(true)
+  it('preserves old timestamps and ticket counts on the original store without turning 18:00 into a break', () => {
+    const endedAt = new Date(2026, 9, 22, 18).toISOString()
+    localStorage.setItem(`parking-assist-work:${getDateKey()}`, JSON.stringify({ activeStoreId: 'storeA', stores: { storeA: { inspectionSeconds: '7' } }, schedule: { endedAt, parkingTickets: '35', finishMemo: '旧版の補足' } }))
+
+    const report = loadWorkReport(getDateKey())
+
+    expect(report.version).toBe(2)
+    expect(report.stores.storeA.inspectionSeconds).toBe('7')
+    expect(report.stores.storeB.schedule).toMatchObject({ endedAt, parkingTickets: '35', eveningBreakAt: null, eveningResumedAt: null, finishMemo: '旧版の補足' })
+    expect(report.stores.storeA.schedule.endedAt).toBeNull()
+    report.activeStoreId = 'storeB'
+    expect(buildWorkLineText(report, storeConfigs)).toContain('18:00…配置解除,店舗挨拶完了')
+
+    localStorage.setItem(`parking-assist-work:${getDateKey()}`, JSON.stringify(report))
+    expect(loadWorkReport(getDateKey())).toEqual(report)
+  })
+
+  it('also respects the older swapped store labels', () => {
+    const startedAt = new Date(2026, 9, 22, 10).toISOString()
+    localStorage.setItem('parking-assist-settings', JSON.stringify({ storeLabels: { storeA: '名東本通店', storeB: '杉栄店' } }))
+    localStorage.setItem(`parking-assist-work:${getDateKey()}`, JSON.stringify({ activeStoreId: 'storeB', stores: { storeB: { inspectionSeconds: '6' } }, schedule: { startedAt } }))
+
+    const report = loadWorkReport(getDateKey())
+
+    expect(report.activeStoreId).toBe('storeA')
+    expect(report.stores.storeA.inspectionSeconds).toBe('6')
+    expect(report.stores.storeA.schedule.startedAt).toBe(startedAt)
+    expect(report.stores.storeB.schedule.startedAt).toBeNull()
   })
 })
 
@@ -264,19 +458,59 @@ describe('work schedule recovery', () => {
     await user.click(screen.getByRole('button', { name: '名東本通店で本日の稼働を開始' }))
     await user.click(screen.getByRole('button', { name: 'あとで見る' }))
     await user.click(screen.getAllByRole('button', { name: '勤務報告' })[0])
-    await user.click(screen.getByRole('button', { name: '18:00 勤務終了' }))
-    expect(screen.getByRole('heading', { name: '18:00 勤務終了を先に記録しますか？' })).not.toBeNull()
+    await user.click(screen.getByRole('button', { name: '21:00 勤務終了' }))
+    expect(screen.getByRole('heading', { name: '21:00 勤務終了を先に記録しますか？' })).not.toBeNull()
+    expect(within(screen.getByRole('dialog')).getByText(/18:00 夕方休憩開始、19:00 夜間業務再開が未記録/)).not.toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'キャンセル' }))
-    expect(screen.getByRole('button', { name: '18:00 勤務終了' })).not.toBeNull()
+    expect(screen.getByRole('button', { name: '21:00 勤務終了' })).not.toBeNull()
 
-    await user.click(screen.getByRole('button', { name: '18:00 勤務終了' }))
+    await user.click(screen.getByRole('button', { name: '21:00 勤務終了' }))
     await user.click(screen.getByRole('button', { name: 'このまま記録' }))
-    const removeButton = await screen.findByRole('button', { name: '18:00 勤務終了の記録を取り消す' })
+    const removeButton = await screen.findByRole('button', { name: '21:00 勤務終了の記録を取り消す' })
 
     await user.click(removeButton)
     await user.click(screen.getByRole('button', { name: '記録を取り消す' }))
-    expect(await screen.findByRole('button', { name: '18:00 勤務終了' })).not.toBeNull()
+    expect(await screen.findByRole('button', { name: '21:00 勤務終了' })).not.toBeNull()
+  })
+
+  it('records at the current time, edits the report time, and keeps both stores independent after reload', async () => {
+    seedApp(undefined, { ended: false })
+    const user = userEvent.setup()
+    const view = render(<App />)
+    await user.click(screen.getAllByRole('button', { name: '勤務報告' })[0])
+    expect(screen.queryByRole('button', { name: '杉栄店に到着' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: '10:00 勤務開始' }))
+    expect(screen.getByLabelText('勤務開始の報告時刻').value).toBe(new Date().toTimeString().slice(0, 5))
+    fireEvent.change(screen.getByLabelText('勤務開始の報告時刻'), { target: { value: '10:05' } })
+    await user.click(screen.getByRole('button', { name: /報告文を生成/ }))
+    expect(screen.getByLabelText('勤務報告用テキスト').value).toContain('10:05配置つきました。')
+    fireEvent.change(screen.getByLabelText('勤務開始の報告時刻'), { target: { value: '10:06' } })
+    expect(screen.queryByLabelText('勤務報告用テキスト')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: '名東本通店・店舗を変更' }))
+    await user.click(screen.getByRole('button', { name: '杉栄店で本日の稼働を開始' }))
+    await user.click(screen.getAllByRole('button', { name: '勤務報告' })[0])
+    expect(screen.getByRole('button', { name: '10:00 勤務開始' })).not.toBeNull()
+    expect(screen.queryByLabelText('勤務開始の報告時刻')).toBeNull()
+    await user.click(screen.getByRole('button', { name: '杉栄店に到着' }))
+    await user.click(screen.getByRole('button', { name: '車両なし（画面のみ）' }))
+    expect(screen.queryByLabelText(/精算後の画面/)).toBeNull()
+    expect(screen.getByRole('button', { name: '再起動開始を記録' }).disabled).toBe(false)
+    await user.click(screen.getByRole('button', { name: '店舗挨拶を記録' }))
+    await user.click(screen.getByRole('button', { name: '10:00 勤務開始' }))
+    fireEvent.change(screen.getByLabelText('勤務開始の報告時刻'), { target: { value: '10:01' } })
+    await user.click(screen.getByRole('button', { name: /報告文を生成/ }))
+    expect(screen.getByLabelText('勤務報告用テキスト').value).toContain('【杉栄店】')
+    expect(screen.getByLabelText('勤務報告用テキスト').value).not.toContain('名東本通')
+
+    view.unmount()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: '杉栄店・店舗を変更' }))
+    await user.click(screen.getByRole('button', { name: '名東本通店で本日の稼働を開始' }))
+    await user.click(screen.getAllByRole('button', { name: '勤務報告' })[0])
+    expect(screen.getByLabelText('勤務開始の報告時刻').value).toBe('10:06')
+    expect(screen.getByRole('button', { name: '名東本通店に到着' })).not.toBeNull()
   })
 })
 
