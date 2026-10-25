@@ -119,6 +119,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .active-time { display: flex; align-items: baseline; gap: 7px; font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .active-time small { font-size: 14px; }
 .active-time span { color: #aabbdc; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+.entry-time-link { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 2px 4px; margin: -2px -4px; border: 0; border-radius: 6px; background: transparent; color: inherit; font-size: inherit; font-variant-numeric: tabular-nums; }
+.entry-time-link time { font-size: 15px; font-weight: 800; white-space: nowrap; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; }
+.entry-time-link:hover { background: var(--blue-pale); }
+.active-entry-time { margin-top: 1px; color: #c6d4ee; font-size: 12px; }
+.active-entry-time time { font-size: 13px; }
+.active-entry-time:hover { background: rgba(255, 255, 255, .12); }
 .active-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 150px; }
 .active-more-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .active-more-actions .note-button { min-width: 0; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; }
@@ -368,6 +374,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .delete-record { padding-left: 0; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
 .form-grid .field-label { margin-top: 0; }
+.form-error { color: var(--red); font-size: 13px; line-height: 1.5; }
 
 :root[data-theme='dark'] .brand-mark,
 :root[data-theme='dark'] .section-heading h1,

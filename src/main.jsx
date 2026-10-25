@@ -119,11 +119,12 @@ function formatDateLabel(date = new Date()) {
   return `${date.getMonth() + 1}/${date.getDate()}（${weekdays[date.getDay()]}）`
 }
 
-function formatTime(value) {
+function formatTime(value, showSeconds = false) {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  return showSeconds ? `${time}:${String(date.getSeconds()).padStart(2, '0')}` : time
 }
 
 function formatDateTimeInput(value) {
@@ -141,6 +142,13 @@ function parseDateTimeInput(value) {
 function resolveEditedDateTimeInput(value, originalValue) {
   if (value === formatDateTimeInput(originalValue)) return originalValue || null
   return parseDateTimeInput(value)
+}
+
+function getEntryTimeError(value, now = Date.now()) {
+  const timestamp = value ? new Date(value).getTime() : NaN
+  if (!Number.isFinite(timestamp)) return '入庫時間を入力してください。'
+  if (timestamp > now) return '入庫時間は現在以前の時刻にしてください。'
+  return ''
 }
 
 function getElapsedSeconds(record, now = Date.now()) {
@@ -888,7 +896,7 @@ function RecordRow({ record, now, action, actionLabel, actionTone = 'primary', o
       <div className={`spot-number ${getRecordSpot(record) ? '' : 'unknown'}`}><span>{getRecordSpotLabel(record)}</span></div>
       <div className="row-data">
         <div className="row-topline"><StatusBadge status={record.status} />{record.lineReportedAt && <span className="result-label completed-result">報告済み</span>}{overLimit && <span className="result-label warning">90秒超</span>}</div>
-        <div className="metric-line"><span><small>経過</small><strong>{elapsed}秒</strong></span><span><small>証明書発行</small><strong>{formatTime(record.issuedAt)}</strong></span>{record.status !== 'parking' && <span><small>精算</small><strong>{formatTime(record.settledAt)}</strong></span>}</div>
+        <div className="metric-line"><span><button type="button" className="entry-time-link" disabled={!onEdit} aria-label={`${getRecordSpotLabel(record)}の入庫時間を修正`} onClick={() => onEdit(record, 'startedAt')}><small>入庫時間</small><time dateTime={record.startedAt}>{formatTime(record.startedAt, true)}</time>{onEdit && <Icon name="edit" size={13} />}</button></span><span><small>経過</small><strong>{elapsed}秒</strong></span><span><small>証明書発行</small><strong>{formatTime(record.issuedAt)}</strong></span>{record.status !== 'parking' && <span><small>精算</small><strong>{formatTime(record.settledAt)}</strong></span>}</div>
         {notes && <div className="row-note"><Icon name="note" size={15} />{notes}</div>}
       </div>
       {action && <button type="button" className={`action-button ${actionTone}`} onClick={() => action(record)}>{actionLabel}</button>}
@@ -989,8 +997,9 @@ function ReportSheet({ record, onSave, onClose }) {
   </div>
 }
 
-function EditModal({ record, onSave, onDelete, onClose }) {
+function EditModal({ record, initialField = 'spot', onSave, onDelete, onClose }) {
   const dialogRef = useDialogFocus(onClose)
+  const [error, setError] = useState('')
   const [form, setForm] = useState({
     spot: record.spot,
     startedAt: formatDateTimeInput(record.startedAt),
@@ -999,21 +1008,28 @@ function EditModal({ record, onSave, onDelete, onClose }) {
     notePresets: record.notePresets || [],
     memo: record.memo || '',
   })
-  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }))
+  const update = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }))
+    setError('')
+  }
   const togglePreset = (note) => update('notePresets', form.notePresets.includes(note) ? form.notePresets.filter((item) => item !== note) : [...form.notePresets, note])
   const submit = (event) => {
     event.preventDefault()
     const spot = normalizeSpot(form.spot)
+    const entryError = getEntryTimeError(form.startedAt)
+    if (entryError) return setError(entryError)
     const startedAt = resolveEditedDateTimeInput(form.startedAt, record.startedAt) || record.startedAt
     const issuedAt = resolveEditedDateTimeInput(form.issuedAt, record.issuedAt)
     const settledAt = resolveEditedDateTimeInput(form.settledAt, record.settledAt)
+    if ([issuedAt, settledAt].some((value) => value && new Date(value).getTime() < new Date(startedAt).getTime())) return setError('入庫時間は証明書発行・精算時刻以前にしてください。')
     onSave(record.id, { spot, startedSpot: record.startedSpot || spot, spotConfirmedAt: issuedAt ? (record.spotConfirmedAt || issuedAt) : null, spotSource: spot ? 'edit' : 'unknown', startedAt, issuedAt, settledAt, exitCompletedAt: settledAt ? record.exitCompletedAt : null, lineReportedAt: settledAt ? record.lineReportedAt : null, status: settledAt ? 'settled' : issuedAt ? 'issued' : 'parking', notePresets: form.notePresets, memo: form.memo })
   }
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
     <section ref={dialogRef} className="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title" tabIndex="-1">
       <div className="modal-heading"><div><span className="eyebrow">記録を修正</span><h2 id="edit-modal-title">{getRecordSpotLabel(record)}の詳細</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="閉じる"><Icon name="close" /></button></div>
       <form onSubmit={submit}>
-        <div className="form-grid"><label className="field-label">駐車位置番号<input data-dialog-initial-focus className="text-input" type="text" inputMode="numeric" placeholder="未入力でも可" value={form.spot || ''} onChange={(event) => update('spot', event.target.value)} /></label><label className="field-label">駐車開始<input className="text-input" type="datetime-local" step="1" value={form.startedAt} onChange={(event) => update('startedAt', event.target.value)} /></label><label className="field-label">証明書発行<input className="text-input" type="datetime-local" step="1" value={form.issuedAt} onChange={(event) => update('issuedAt', event.target.value)} /></label><label className="field-label">精算時刻<input className="text-input" type="datetime-local" step="1" value={form.settledAt} onChange={(event) => update('settledAt', event.target.value)} /></label></div>
+        <div className="form-grid"><label className="field-label">駐車位置番号<input data-dialog-initial-focus={initialField === 'spot' || undefined} className="text-input" type="text" inputMode="numeric" placeholder="未入力でも可" value={form.spot || ''} onChange={(event) => update('spot', event.target.value)} /></label><label className="field-label">入庫時間<input data-dialog-initial-focus={initialField === 'startedAt' || undefined} className="text-input" type="datetime-local" step="1" required value={form.startedAt} onChange={(event) => update('startedAt', event.target.value)} /></label><label className="field-label">証明書発行<input className="text-input" type="datetime-local" step="1" value={form.issuedAt} onChange={(event) => update('issuedAt', event.target.value)} /></label><label className="field-label">精算時刻<input className="text-input" type="datetime-local" step="1" value={form.settledAt} onChange={(event) => update('settledAt', event.target.value)} /></label></div>
+        {error && <p className="form-error" role="alert">{error}</p>}
         <div className="field-label">例外メモ</div><div className="note-options compact">{COMMON_NOTES.map((note) => <button key={note} type="button" className={`note-option ${form.notePresets.includes(note) ? 'selected' : ''}`} onClick={() => togglePreset(note)}>{form.notePresets.includes(note) && <Icon name="check" size={16} />}{note}</button>)}</div>
         <label className="field-label" htmlFor="edit-memo">自由メモ</label><textarea id="edit-memo" className="text-input memo-input" value={form.memo} onChange={(event) => update('memo', event.target.value)} rows="3" placeholder="メモを入力してください" />
         <div className="modal-footer"><button type="button" className="subtle-button danger delete-record" onClick={() => onDelete(record)}>この記録を削除</button><div className="footer-right"><button type="button" className="secondary-button" onClick={onClose}>キャンセル</button><button type="submit" className="primary-button">変更を保存</button></div></div>
@@ -1050,6 +1066,7 @@ function App() {
   const [noteRecord, setNoteRecord] = useState(null)
   const [reportRecord, setReportRecord] = useState(null)
   const [editRecord, setEditRecord] = useState(null)
+  const [editInitialField, setEditInitialField] = useState('spot')
   const [issueRecord, setIssueRecord] = useState(null)
   const [lineText, setLineText] = useState('')
   const [lineReportTargetIds, setLineReportTargetIds] = useState([])
@@ -1270,6 +1287,11 @@ function App() {
     notify('LINE報告の形式を保存しました')
   }
 
+  const openRecordEditor = (record, initialField = 'spot') => {
+    setEditRecord(record)
+    setEditInitialField(initialField)
+  }
+
   const saveEdit = (id, patch) => {
     const current = records.find((record) => record.id === id)
     const nextSpot = normalizeSpot(patch.spot)
@@ -1397,23 +1419,23 @@ function App() {
 
       {activeView === 'record' && <section className="view-section" aria-labelledby="record-heading">
         <div className="section-heading"><div><h1 id="record-heading">駐車番号を選択</h1><p>番号が分かるときはタップ。分からないときは発行時に入力できます。</p></div><span className="section-count">対応中 {parkingRecords.length}件</span></div>
-        {parkingRecords.length > 0 && <div className="active-panel"><div className="active-panel-heading"><span className="live-dot" />タイマー動作中（発行時に番号入力）</div>{parkingRecords.map((record) => <div className="active-record" key={record.id}><div className="active-summary"><strong className={!getRecordSpot(record) ? 'unknown' : ''}>{getRecordSpotLabel(record)}</strong><div><StatusBadge status="parking" /><div className="active-time">{getElapsedSeconds(record, now)}<small>秒</small><span>{formatDuration(getElapsedSeconds(record, now))}</span></div></div></div><div className="active-actions"><button type="button" className="primary-button issue-button" onClick={() => issueCertificate(record)}><Icon name="check" size={20} /><span>証明書発行＋番号入力</span></button><div className="active-more-actions"><button type="button" className="secondary-button note-button" onClick={() => setNoteRecord(record)}><Icon name="note" size={16} />メモ</button><button type="button" className="secondary-button note-button" onClick={() => setEditRecord(record)}><Icon name="edit" size={16} />編集</button><button type="button" className="secondary-button note-button danger" onClick={() => deleteRecord(record)}><Icon name="trash" size={16} />削除</button></div></div></div>)}</div>}
-        <div className="parking-area"><div className="area-heading"><h2>駐車位置番号</h2><span>{PARKING_LAYOUTS[activeStoreConfig.parkingLayout]?.label}</span></div><button type="button" className="unknown-start-button" onClick={startUnknownRecord}><Icon name="plus" size={20} /><span><strong>番号未入力でタイマー開始</strong><small>駐車証明発行時に番号を入力</small></span></button><ParkingGrid records={records} layoutId={activeStoreConfig.parkingLayout} onStart={startRecord} onOpenRecord={setEditRecord} /></div>
+        {parkingRecords.length > 0 && <div className="active-panel"><div className="active-panel-heading"><span className="live-dot" />タイマー動作中（発行時に番号入力）</div>{parkingRecords.map((record) => <div className="active-record" key={record.id}><div className="active-summary"><strong className={!getRecordSpot(record) ? 'unknown' : ''}>{getRecordSpotLabel(record)}</strong><div><StatusBadge status="parking" /><div className="active-time">{getElapsedSeconds(record, now)}<small>秒</small><span>{formatDuration(getElapsedSeconds(record, now))}</span></div><button type="button" className="entry-time-link active-entry-time" aria-label={`${getRecordSpotLabel(record)}の入庫時間を修正`} onClick={() => openRecordEditor(record, 'startedAt')}><span>入庫時間</span><time dateTime={record.startedAt}>{formatTime(record.startedAt, true)}</time><Icon name="edit" size={13} /></button></div></div><div className="active-actions"><button type="button" className="primary-button issue-button" onClick={() => issueCertificate(record)}><Icon name="check" size={20} /><span>証明書発行＋番号入力</span></button><div className="active-more-actions"><button type="button" className="secondary-button note-button" onClick={() => setNoteRecord(record)}><Icon name="note" size={16} />メモ</button><button type="button" className="secondary-button note-button" onClick={() => openRecordEditor(record)}><Icon name="edit" size={16} />編集</button><button type="button" className="secondary-button note-button danger" onClick={() => deleteRecord(record)}><Icon name="trash" size={16} />削除</button></div></div></div>)}</div>}
+        <div className="parking-area"><div className="area-heading"><h2>駐車位置番号</h2><span>{PARKING_LAYOUTS[activeStoreConfig.parkingLayout]?.label}</span></div><button type="button" className="unknown-start-button" onClick={startUnknownRecord}><Icon name="plus" size={20} /><span><strong>番号未入力でタイマー開始</strong><small>駐車証明発行時に番号を入力</small></span></button><ParkingGrid records={records} layoutId={activeStoreConfig.parkingLayout} onStart={startRecord} onOpenRecord={openRecordEditor} /></div>
         {parkingRecords.length === 0 && <EmptyState title="タイマー動作中の車両はありません" detail="車が駐車したら、番号ボタンまたは番号未入力で開始を押してください。" />}
       </section>}
 
       {activeView === 'work' && <WorkReportView report={workReport} storeConfigs={storeConfigs} restartRule={restartRule} lineText={workLineText} onStorePatch={updateWorkStore} onSchedulePatch={updateWorkSchedule} onNotify={notify} onGenerate={generateWorkLineText} onCopy={copyWorkLineText} />}
 
-      {activeView === 'issued' && <section className="view-section" aria-labelledby="issued-heading"><div className="section-heading"><div><h1 id="issued-heading">発行済み・精算待ち</h1><p>証明書を発行した車両の精算を記録します。番号の編集・削除もここから行えます。</p></div><span className="section-count">{issuedRecords.length}件</span></div>{issuedRecords.length === 0 ? <EmptyState title="精算待ちの車両はありません" detail="証明書発行後の車両がここに表示されます。" /> : <div className="record-list">{issuedRecords.map((record) => <RecordRow key={record.id} record={record} now={now} action={settleRecord} actionLabel="精算" onNote={setNoteRecord} onEdit={setEditRecord} onDelete={deleteRecord} />)}</div>}</section>}
+      {activeView === 'issued' && <section className="view-section" aria-labelledby="issued-heading"><div className="section-heading"><div><h1 id="issued-heading">発行済み・精算待ち</h1><p>証明書を発行した車両の精算を記録します。番号の編集・削除もここから行えます。</p></div><span className="section-count">{issuedRecords.length}件</span></div>{issuedRecords.length === 0 ? <EmptyState title="精算待ちの車両はありません" detail="証明書発行後の車両がここに表示されます。" /> : <div className="record-list">{issuedRecords.map((record) => <RecordRow key={record.id} record={record} now={now} action={settleRecord} actionLabel="精算" onNote={setNoteRecord} onEdit={openRecordEditor} onDelete={deleteRecord} />)}</div>}</section>}
 
-        {activeView === 'history' && <section className="view-section" aria-labelledby="history-heading"><div className="section-heading"><div><h1 id="history-heading">本日の履歴</h1><p>精算済みの記録を確認・修正できます。90秒以内の記録はまとめて報告できます。</p></div><div className="section-heading-actions"><span className="section-count">{settledRecords.length}件</span><button type="button" className="subtle-button danger history-clear-button" disabled={settledRecords.length === 0} onClick={() => setDeleteAllOpen(true)}><Icon name="trash" size={16} />履歴を全件削除</button></div></div><div className="line-tools"><div><strong>まとめ報告</strong><span>精算済み・90秒以内の記録をまとめます。コピー後もいつでも再生成できます。</span></div><button type="button" className="line-button" aria-label="LINE まとめて報告文を生成" onClick={generateLineText}><span className="line-mark">LINE</span>まとめて報告文を生成</button></div>{lineText && <div className="line-output"><div className="line-output-heading"><strong>生成されたテキスト</strong><button type="button" className="copy-button" onClick={copyLineText}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="LINE用テキスト" /></div>}{settledRecords.length === 0 ? <EmptyState title="完了した記録はありません" detail="精算ボタンを押した記録がここに表示されます。" /> : <div className="record-list history-list">{settledRecords.map((record) => <RecordRow key={record.id} record={record} now={now} onNote={setNoteRecord} onReport={setReportRecord} onEdit={setEditRecord} onDelete={deleteRecord} />)}</div>}</section>}
+        {activeView === 'history' && <section className="view-section" aria-labelledby="history-heading"><div className="section-heading"><div><h1 id="history-heading">本日の履歴</h1><p>精算済みの記録を確認・修正できます。90秒以内の記録はまとめて報告できます。</p></div><div className="section-heading-actions"><span className="section-count">{settledRecords.length}件</span><button type="button" className="subtle-button danger history-clear-button" disabled={settledRecords.length === 0} onClick={() => setDeleteAllOpen(true)}><Icon name="trash" size={16} />履歴を全件削除</button></div></div><div className="line-tools"><div><strong>まとめ報告</strong><span>精算済み・90秒以内の記録をまとめます。コピー後もいつでも再生成できます。</span></div><button type="button" className="line-button" aria-label="LINE まとめて報告文を生成" onClick={generateLineText}><span className="line-mark">LINE</span>まとめて報告文を生成</button></div>{lineText && <div className="line-output"><div className="line-output-heading"><strong>生成されたテキスト</strong><button type="button" className="copy-button" onClick={copyLineText}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="LINE用テキスト" /></div>}{settledRecords.length === 0 ? <EmptyState title="完了した記録はありません" detail="精算ボタンを押した記録がここに表示されます。" /> : <div className="record-list history-list">{settledRecords.map((record) => <RecordRow key={record.id} record={record} now={now} onNote={setNoteRecord} onReport={setReportRecord} onEdit={openRecordEditor} onDelete={deleteRecord} />)}</div>}</section>}
       </>}
     </main>
     {activeStoreConfig && <><footer className="app-footer">端末内に自動保存中 · {todayKey}</footer><nav className={`mobile-bottom-nav ${isScrolling ? 'is-scrolling' : ''}`} aria-label="主要メニュー">{primaryTabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={selectView} mobile />)}</nav></>}
     {noteRecord && <NoteSheet record={records.find((record) => record.id === noteRecord.id) || noteRecord} onSave={saveNotes} onClose={() => setNoteRecord(null)} />}
     {reportRecord && <ReportSheet record={records.find((record) => record.id === reportRecord.id) || reportRecord} onSave={saveReportSettings} onClose={() => setReportRecord(null)} />}
     {issueRecord && <SpotConfirmSheet record={records.find((record) => record.id === issueRecord.id) || issueRecord} parkingLayout={activeStoreConfig?.parkingLayout} onConfirm={confirmCertificateIssue} onClose={() => setIssueRecord(null)} />}
-    {editRecord && <EditModal record={records.find((record) => record.id === editRecord.id) || editRecord} onSave={saveEdit} onDelete={deleteRecord} onClose={() => setEditRecord(null)} />}
+    {editRecord && <EditModal record={records.find((record) => record.id === editRecord.id) || editRecord} initialField={editInitialField} onSave={saveEdit} onDelete={deleteRecord} onClose={() => setEditRecord(null)} />}
     {deleteAllOpen && <DeleteAllDialog count={settledRecords.length} onConfirm={deleteAllSettledRecords} onClose={() => setDeleteAllOpen(false)} />}
     {storeSelectorOpen && activeStoreConfig && <StoreSwitchSheet options={operationStoreOptions} currentStoreId={activeStoreConfig.id} onSelect={selectOperationStore} onClose={() => setStoreSelectorOpen(false)} />}
     {settingsOpen && <SettingsSheet settings={settings} onSave={saveSettings} onClose={() => setSettingsOpen(false)} />}

@@ -80,6 +80,120 @@ describe('record time editing', () => {
   })
 })
 
+describe('parking entry times', () => {
+  function openApp() {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 9, 25, 10, 30, 45, 789))
+    seedApp()
+    localStorage.setItem(`parking-assist-records:${getDateKey()}`, '[]')
+    localStorage.setItem('parking-assist-tutorial:v1', 'skipped')
+    return render(<App />)
+  }
+
+  function savedRecords() {
+    return JSON.parse(localStorage.getItem(`parking-assist-records:${getDateKey()}`))
+  }
+
+  it('records the exact tap time for numbered and unknown starts and displays both entry times', () => {
+    openApp()
+    fireEvent.click(screen.getByRole('button', { name: '1番・新しく記録開始', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: /番号未入力でタイマー開始/ }))
+
+    expect(savedRecords()).toMatchObject([
+      { spot: '1', startedAt: new Date().toISOString(), status: 'parking' },
+      { spot: null, unknownLabel: '1', startedAt: new Date().toISOString(), status: 'parking' },
+    ])
+    expect(screen.getAllByText('10:30:45')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: '1番の入庫時間を修正' })).not.toBeNull()
+    expect(screen.getByRole('button', { name: '番号未入力 #1の入庫時間を修正' })).not.toBeNull()
+  })
+
+  it('keeps the entry time through spot confirmation, issuance, settlement, and reload', () => {
+    const view = openApp()
+    fireEvent.click(screen.getByRole('button', { name: '1番・新しく記録開始', exact: true }))
+    const entryTime = savedRecords()[0].startedAt
+    act(() => vi.advanceTimersByTime(20_000))
+    fireEvent.click(screen.getByRole('button', { name: '証明書発行＋番号入力' }))
+    fireEvent.change(screen.getByLabelText('駐車位置番号（入力必須・数字／英字）'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: '3番で発行確定' }))
+    fireEvent.click(screen.getAllByRole('button', { name: /発行済み・精算待ち/ })[0])
+    expect(screen.getByText('10:30:45')).not.toBeNull()
+    expect(screen.getByRole('button', { name: '3番の入庫時間を修正' })).not.toBeNull()
+    expect(screen.getByText('20秒')).not.toBeNull()
+    act(() => vi.advanceTimersByTime(60_000))
+    fireEvent.click(screen.getByRole('button', { name: '精算', exact: true }))
+    fireEvent.click(screen.getAllByRole('button', { name: /履歴/ })[0])
+    expect(screen.getByText('10:30:45')).not.toBeNull()
+    expect(savedRecords()[0]).toMatchObject({ spot: '3', startedAt: entryTime, status: 'settled' })
+
+    view.unmount()
+    render(<App />)
+    fireEvent.click(screen.getAllByRole('button', { name: /履歴/ })[0])
+    expect(screen.getByText('10:30:45')).not.toBeNull()
+    expect(savedRecords()[0].startedAt).toBe(entryTime)
+    fireEvent.click(screen.getByRole('button', { name: /まとめて報告文を生成/ }))
+    expect(screen.getByLabelText('LINE用テキスト').value).toContain('駐車→証明書発行20秒')
+  })
+
+  it('focuses entry time when tapped, preserves untouched milliseconds, and recalculates after a correction', () => {
+    openApp()
+    fireEvent.click(screen.getByRole('button', { name: '1番・新しく記録開始', exact: true }))
+    const original = savedRecords()[0].startedAt
+    fireEvent.click(screen.getByRole('button', { name: '1番の入庫時間を修正' }))
+    expect(document.activeElement).toBe(screen.getByLabelText('入庫時間'))
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(savedRecords()[0].startedAt).toBe(original)
+    fireEvent.click(screen.getByRole('button', { name: '1番の入庫時間を修正' }))
+    fireEvent.change(screen.getByLabelText('入庫時間'), { target: { value: '2026-10-25T10:30:00' } })
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(screen.getByText('10:30:00')).not.toBeNull()
+    expect(document.querySelector('.active-time').textContent).toBe('45秒00:45')
+    expect(savedRecords()[0].startedAt).toBe(new Date(2026, 9, 25, 10, 30, 0).toISOString())
+  })
+
+  it('rejects a future entry time and cancels without changing an unknown-number record', () => {
+    openApp()
+    fireEvent.click(screen.getByRole('button', { name: /番号未入力でタイマー開始/ }))
+    const original = savedRecords()[0]
+    const entryButton = screen.getByRole('button', { name: '番号未入力 #1の入庫時間を修正' })
+    entryButton.focus()
+    fireEvent.click(entryButton)
+    fireEvent.change(screen.getByLabelText('入庫時間'), { target: { value: '2026-10-25T10:31:00' } })
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(screen.getByRole('alert').textContent).toContain('現在以前')
+    expect(savedRecords()[0]).toEqual(original)
+    fireEvent.click(screen.getByRole('button', { name: 'キャンセル' }))
+    expect(savedRecords()[0]).toEqual(original)
+    expect(screen.getByRole('button', { name: '番号未入力 #1の入庫時間を修正' })).toBe(document.activeElement)
+  })
+
+  it('displays legacy start times and updates reporting after an entry-time correction', () => {
+    openApp()
+    cleanup()
+    seedApp()
+    render(<App />)
+    const original = savedRecords()[0]
+    fireEvent.click(screen.getAllByRole('button', { name: /履歴/ })[0])
+    expect(screen.getByText('10:30:05')).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /まとめて報告文を生成/ }))
+    expect(screen.getByLabelText('LINE用テキスト').value).toContain('駐車→証明書発行20秒')
+    fireEvent.click(screen.getByRole('button', { name: '1番の入庫時間を修正' }))
+    const entryInput = screen.getByLabelText('入庫時間')
+    expect(document.activeElement).toBe(entryInput)
+    fireEvent.change(entryInput, { target: { value: '2026-10-25T10:30:30' } })
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(screen.getByRole('alert').textContent).toContain('証明書発行・精算時刻以前')
+    expect(savedRecords()[0]).toEqual(original)
+    fireEvent.change(entryInput, { target: { value: '2026-10-25T10:28:00' } })
+    fireEvent.click(screen.getByRole('button', { name: '変更を保存' }))
+    expect(screen.queryByLabelText('LINE用テキスト')).toBeNull()
+    expect(screen.getByText('90秒超')).not.toBeNull()
+    expect(savedRecords()[0]).toMatchObject({ issuedAt: original.issuedAt, settledAt: original.settledAt })
+    fireEvent.click(screen.getByRole('button', { name: /まとめて報告文を生成/ }))
+    expect(screen.getByLabelText('LINE用テキスト').value).not.toContain('駐車位置番号:1番')
+  })
+})
+
 describe('work report text', () => {
   it('uses configured store labels and prints the closing only once', () => {
     const report = createDefaultWorkReport()
