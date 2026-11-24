@@ -9,7 +9,7 @@ import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-    private static final String WEB_BUNDLE_VERSION = "0.1.28";
+    private static final String WEB_BUNDLE_VERSION = "0.1.29";
     private static final String PREFS_NAME = "parking-assist";
     private static final String REFRESH_KEY = "web-cache-refreshed-" + WEB_BUNDLE_VERSION;
 
