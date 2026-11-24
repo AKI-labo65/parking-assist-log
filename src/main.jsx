@@ -4,6 +4,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 import './styles.css'
 import { IS_PREVIEW, STORAGE_KEYS, hasSeenTutorial, rememberTutorial } from './environment.js'
 import { Tutorial, TutorialWelcome } from './Tutorial.jsx'
+import { WORKSPACE_OPTIONS, loadWorkspaceViews, saveWorkspaceViews } from './workspace.js'
 
 const ParkingLiveActivity = registerPlugin('ParkingLiveActivity')
 const ParkingNotification = registerPlugin('ParkingNotification')
@@ -1048,7 +1049,57 @@ function DeleteAllDialog({ count, onConfirm, onClose }) {
   </div>
 }
 
+function useWideAndroidLayout() {
+  const nativeAndroid = isNativeAndroid()
+  const [wide, setWide] = useState(() => nativeAndroid && Boolean(window.matchMedia?.('(min-width: 680px)').matches) && Math.min(window.screen.width, window.screen.height) >= 680)
+  useEffect(() => {
+    if (!nativeAndroid || !window.matchMedia) return undefined
+    const media = window.matchMedia('(min-width: 680px)')
+    const update = () => setWide(media.matches && Math.min(window.screen.width, window.screen.height) >= 680)
+    update()
+    media.addEventListener('change', update)
+    window.addEventListener('resize', update)
+    return () => {
+      media.removeEventListener('change', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [nativeAndroid])
+  return nativeAndroid && wide
+}
+
+function WorkspacePane({ side, view, active, onSelect, onActivate, children }) {
+  const scrollRef = useRef(null)
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [view])
+  const sideLabel = side === 'left' ? '左側' : '右側'
+  return <section className={`workspace-pane${active ? ' is-active' : ''}`} aria-label={`${sideLabel}の画面`} onPointerDownCapture={onActivate} onFocusCapture={onActivate}>
+    <header className="workspace-pane-header"><label><span>{sideLabel}</span><select aria-label={`${sideLabel}の表示`} value={view} onChange={(event) => onSelect(event.target.value)}>{WORKSPACE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>{active && <span className="workspace-pane-target">操作中</span>}</header>
+    <div className="workspace-pane-content" ref={scrollRef}>{children}</div>
+  </section>
+}
+
+function ParkingRecordView({ parkingRecords, now, openRecordEditor, issueCertificate, setNoteRecord, deleteRecord, activeStoreConfig, startUnknownRecord, records, startRecord, headingId = 'record-heading' }) {
+  return <section className="view-section record-view" aria-labelledby={headingId}>
+        <div className="section-heading"><div><h1 id={headingId}>駐車番号を選択</h1><p>番号が分かるときはタップ。分からないときは発行時に入力できます。</p></div><span className="section-count">対応中 {parkingRecords.length}件</span></div>
+        {parkingRecords.length > 0 && <div className="active-panel"><div className="active-panel-heading"><span className="live-dot" />タイマー動作中（発行時に番号入力）</div>{parkingRecords.map((record) => <div className="active-record" key={record.id}><div className="active-summary"><strong className={!getRecordSpot(record) ? 'unknown' : ''}>{getRecordSpotLabel(record)}</strong><div><StatusBadge status="parking" /><div className="active-time">{getElapsedSeconds(record, now)}<small>秒</small><span>{formatDuration(getElapsedSeconds(record, now))}</span></div><button type="button" className="entry-time-link active-entry-time" aria-label={`${getRecordSpotLabel(record)}の入庫時間を修正`} onClick={() => openRecordEditor(record, 'startedAt')}><span>入庫時間</span><time dateTime={record.startedAt}>{formatTime(record.startedAt)}</time><Icon name="edit" size={13} /></button></div></div><div className="active-actions"><button type="button" className="primary-button issue-button" onClick={() => issueCertificate(record)}><Icon name="check" size={20} /><span>証明書発行＋番号入力</span></button><div className="active-more-actions"><button type="button" className="secondary-button note-button" onClick={() => setNoteRecord(record)}><Icon name="note" size={16} />メモ</button><button type="button" className="secondary-button note-button" onClick={() => openRecordEditor(record)}><Icon name="edit" size={16} />編集</button><button type="button" className="secondary-button note-button danger" onClick={() => deleteRecord(record)}><Icon name="trash" size={16} />削除</button></div></div></div>)}</div>}
+        <div className="parking-area"><div className="area-heading"><h2>駐車位置番号</h2><span>{PARKING_LAYOUTS[activeStoreConfig.parkingLayout]?.label}</span></div><button type="button" className="unknown-start-button" onClick={startUnknownRecord}><Icon name="plus" size={20} /><span><strong>番号未入力でタイマー開始</strong><small>駐車証明発行時に番号を入力</small></span></button><ParkingGrid records={records} layoutId={activeStoreConfig.parkingLayout} onStart={startRecord} onOpenRecord={openRecordEditor} /></div>
+        {parkingRecords.length === 0 && <EmptyState title="タイマー動作中の車両はありません" detail="車が駐車したら、番号ボタンまたは番号未入力で開始を押してください。" />}
+      </section>
+}
+
+function IssuedRecordsView({ issuedRecords, now, settleRecord, setNoteRecord, openRecordEditor, deleteRecord, headingId = 'issued-heading' }) {
+  return <section className="view-section" aria-labelledby={headingId}><div className="section-heading"><div><h1 id={headingId}>発行済み・精算待ち</h1><p>証明書を発行した車両の精算を記録します。番号の編集・削除もここから行えます。</p></div><span className="section-count">{issuedRecords.length}件</span></div>{issuedRecords.length === 0 ? <EmptyState title="精算待ちの車両はありません" detail="証明書発行後の車両がここに表示されます。" /> : <div className="record-list">{issuedRecords.map((record) => <RecordRow key={record.id} record={record} now={now} action={settleRecord} actionLabel="精算" onNote={setNoteRecord} onEdit={openRecordEditor} onDelete={deleteRecord} />)}</div>}</section>
+}
+
+function HistoryView({ settledRecords, now, setDeleteAllOpen, generateLineText, lineText, copyLineText, setNoteRecord, setReportRecord, openRecordEditor, deleteRecord, headingId = 'history-heading' }) {
+  return <section className="view-section" aria-labelledby={headingId}><div className="section-heading"><div><h1 id={headingId}>本日の履歴</h1><p>精算済みの記録を確認・修正できます。90秒以内の記録はまとめて報告できます。</p></div><div className="section-heading-actions"><span className="section-count">{settledRecords.length}件</span><button type="button" className="subtle-button danger history-clear-button" disabled={settledRecords.length === 0} onClick={() => setDeleteAllOpen(true)}><Icon name="trash" size={16} />履歴を全件削除</button></div></div><div className="line-tools"><div><strong>まとめ報告</strong><span>精算済み・90秒以内の記録をまとめます。コピー後もいつでも再生成できます。</span></div><button type="button" className="line-button" aria-label="LINE まとめて報告文を生成" onClick={generateLineText}><span className="line-mark">LINE</span>まとめて報告文を生成</button></div>{lineText && <div className="line-output"><div className="line-output-heading"><strong>生成されたテキスト</strong><button type="button" className="copy-button" onClick={copyLineText}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="LINE用テキスト" /></div>}{settledRecords.length === 0 ? <EmptyState title="完了した記録はありません" detail="精算ボタンを押した記録がここに表示されます。" /> : <div className="record-list history-list">{settledRecords.map((record) => <RecordRow key={record.id} record={record} now={now} onNote={setNoteRecord} onReport={setReportRecord} onEdit={openRecordEditor} onDelete={deleteRecord} />)}</div>}</section>
+}
+
 function App() {
+  const wideAndroid = useWideAndroidLayout()
+  const [workspaceViews, setWorkspaceViews] = useState(loadWorkspaceViews)
+  const [activePane, setActivePane] = useState('left')
   const [todayKey, setTodayKey] = useState(() => getDateKey())
   const todayKeyRef = useRef(todayKey)
   const [now, setNow] = useState(Date.now())
@@ -1082,6 +1133,10 @@ function App() {
   useEffect(() => {
     if (IS_PREVIEW) document.title = '精算機補助｜テスト版'
   }, [])
+
+  useEffect(() => {
+    if (isNativeAndroid()) saveWorkspaceViews(workspaceViews)
+  }, [workspaceViews])
 
   const storeConfigs = useMemo(() => WORK_STORES.map((config) => {
     const label = settings.storeLabels[config.id] || config.defaultLabel
@@ -1207,6 +1262,7 @@ function App() {
   }
   const toggleTheme = () => setTheme((current) => current === 'dark' ? 'light' : 'dark')
   const selectView = (view) => {
+    if (wideAndroid && view !== 'work') setWorkspaceViews((current) => ({ ...current, [activePane]: view }))
     setActiveView(view)
     setIsScrolling(false)
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -1408,29 +1464,28 @@ function App() {
   const primaryTabItems = tabItems.filter((tab) => tab.id !== 'work')
   const tutorialVisible = tutorialState === 'tour' || (tutorialState === 'welcome' && activeStoreConfig && records.length === 0 && !settingsOpen && !storeSelectorOpen)
 
-  return <div className={`app-shell${IS_PREVIEW ? ' is-preview' : ''}`}>
+  const splitWorkspace = wideAndroid && Boolean(activeStoreConfig) && activeView !== 'work'
+  const navigationView = splitWorkspace ? workspaceViews[activePane] : activeView
+  const renderOperationView = (view, side) => {
+    const headingId = side ? `${view}-${side}-heading` : `${view}-heading`
+    if (view === 'record') return <ParkingRecordView headingId={headingId} parkingRecords={parkingRecords} now={now} openRecordEditor={openRecordEditor} issueCertificate={issueCertificate} setNoteRecord={setNoteRecord} deleteRecord={deleteRecord} activeStoreConfig={activeStoreConfig} startUnknownRecord={startUnknownRecord} records={records} startRecord={startRecord} />
+    if (view === 'issued') return <IssuedRecordsView headingId={headingId} issuedRecords={issuedRecords} now={now} settleRecord={settleRecord} setNoteRecord={setNoteRecord} openRecordEditor={openRecordEditor} deleteRecord={deleteRecord} />
+    if (view === 'history') return <HistoryView headingId={headingId} settledRecords={settledRecords} now={now} setDeleteAllOpen={setDeleteAllOpen} generateLineText={generateLineText} lineText={lineText} copyLineText={copyLineText} setNoteRecord={setNoteRecord} setReportRecord={setReportRecord} openRecordEditor={openRecordEditor} deleteRecord={deleteRecord} />
+    return null
+  }
+
+  return <div className={`app-shell${isNativeAndroid() ? ' native-bottom-tabs' : ''}${splitWorkspace ? ' fold-workspace' : ''}${IS_PREVIEW ? ' is-preview' : ''}`}>
     {IS_PREVIEW && <aside className="preview-banner"><strong>テスト版</strong><span>本番の記録とは分かれています</span></aside>}
     <header className="app-header"><div className="brand-block"><div className="brand-mark"><span className="brand-dot" /><span>精算機補助</span></div>{activeStoreConfig && <button type="button" className="header-store-button" onClick={() => setStoreSelectorOpen(true)} aria-label={`${activeStoreConfig.label}・店舗を変更`}>{activeStoreConfig.label}<Icon name="arrow" size={14} /></button>}</div><div className="header-date">{formatDateLabel()}</div><div className="header-actions"><button type="button" className="theme-toggle" aria-pressed={theme === 'dark'} aria-label={theme === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え'} onClick={toggleTheme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} /><span>{theme === 'dark' ? 'ライト' : 'ダーク'}</span></button><button type="button" className="help-button tutorial-help-button" aria-label="使い方ガイドを開く" onClick={() => setTutorialState('tour')}>?</button><button type="button" className="icon-button settings-button" aria-label="店舗名設定を開く" onClick={() => setSettingsOpen(true)}>⚙</button></div></header>
-    {activeStoreConfig && <nav className="tab-nav" aria-label="メインメニュー">{tabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={selectView} />)}</nav>}
+    {activeStoreConfig && <nav className="tab-nav" aria-label="メインメニュー">{tabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={navigationView} onSelect={selectView} />)}</nav>}
     <main className={`main-content ${activeStoreConfig ? '' : 'start-main-content'}`}>
       {!activeStoreConfig ? <StoreStartView dateLabel={formatDateLabel()} options={operationStoreOptions} onSelect={selectOperationStore} /> : <>
-      <div className="day-banner"><span><Icon name="clock" size={18} />本日 {formatDateLabel()}</span><div className="day-banner-actions"><button type="button" onClick={() => { setRecords(loadRecords(todayKey)); setWorkReport(loadWorkReport(todayKey)); notify('保存データを読み込みました') }}><Icon name="refresh" size={17} />更新</button><button type="button" className={`secondary-nav-button ${activeView === 'work' ? 'active' : ''}`} onClick={() => selectView('work')}><Icon name="note" size={15} />勤務報告</button></div></div>
+      <div className="day-banner"><span><Icon name="clock" size={18} />本日 {formatDateLabel()}{splitWorkspace && <span className="workspace-badge">2画面</span>}</span><div className="day-banner-actions">{splitWorkspace && <button type="button" className="workspace-swap" onClick={() => setWorkspaceViews((current) => ({ left: current.right, right: current.left }))}>左右を入れ替え</button>}<button type="button" onClick={() => { setRecords(loadRecords(todayKey)); setWorkReport(loadWorkReport(todayKey)); notify('保存データを読み込みました') }}><Icon name="refresh" size={17} />更新</button><button type="button" className={`secondary-nav-button ${activeView === 'work' ? 'active' : ''}`} onClick={() => selectView('work')}><Icon name="note" size={15} />勤務報告</button></div></div>
 
-      {activeView === 'record' && <section className="view-section" aria-labelledby="record-heading">
-        <div className="section-heading"><div><h1 id="record-heading">駐車番号を選択</h1><p>番号が分かるときはタップ。分からないときは発行時に入力できます。</p></div><span className="section-count">対応中 {parkingRecords.length}件</span></div>
-        {parkingRecords.length > 0 && <div className="active-panel"><div className="active-panel-heading"><span className="live-dot" />タイマー動作中（発行時に番号入力）</div>{parkingRecords.map((record) => <div className="active-record" key={record.id}><div className="active-summary"><strong className={!getRecordSpot(record) ? 'unknown' : ''}>{getRecordSpotLabel(record)}</strong><div><StatusBadge status="parking" /><div className="active-time">{getElapsedSeconds(record, now)}<small>秒</small><span>{formatDuration(getElapsedSeconds(record, now))}</span></div><button type="button" className="entry-time-link active-entry-time" aria-label={`${getRecordSpotLabel(record)}の入庫時間を修正`} onClick={() => openRecordEditor(record, 'startedAt')}><span>入庫時間</span><time dateTime={record.startedAt}>{formatTime(record.startedAt)}</time><Icon name="edit" size={13} /></button></div></div><div className="active-actions"><button type="button" className="primary-button issue-button" onClick={() => issueCertificate(record)}><Icon name="check" size={20} /><span>証明書発行＋番号入力</span></button><div className="active-more-actions"><button type="button" className="secondary-button note-button" onClick={() => setNoteRecord(record)}><Icon name="note" size={16} />メモ</button><button type="button" className="secondary-button note-button" onClick={() => openRecordEditor(record)}><Icon name="edit" size={16} />編集</button><button type="button" className="secondary-button note-button danger" onClick={() => deleteRecord(record)}><Icon name="trash" size={16} />削除</button></div></div></div>)}</div>}
-        <div className="parking-area"><div className="area-heading"><h2>駐車位置番号</h2><span>{PARKING_LAYOUTS[activeStoreConfig.parkingLayout]?.label}</span></div><button type="button" className="unknown-start-button" onClick={startUnknownRecord}><Icon name="plus" size={20} /><span><strong>番号未入力でタイマー開始</strong><small>駐車証明発行時に番号を入力</small></span></button><ParkingGrid records={records} layoutId={activeStoreConfig.parkingLayout} onStart={startRecord} onOpenRecord={openRecordEditor} /></div>
-        {parkingRecords.length === 0 && <EmptyState title="タイマー動作中の車両はありません" detail="車が駐車したら、番号ボタンまたは番号未入力で開始を押してください。" />}
-      </section>}
-
-      {activeView === 'work' && <WorkReportView report={workReport} storeConfigs={storeConfigs} restartRule={restartRule} lineText={workLineText} onStorePatch={updateWorkStore} onSchedulePatch={updateWorkSchedule} onNotify={notify} onGenerate={generateWorkLineText} onCopy={copyWorkLineText} />}
-
-      {activeView === 'issued' && <section className="view-section" aria-labelledby="issued-heading"><div className="section-heading"><div><h1 id="issued-heading">発行済み・精算待ち</h1><p>証明書を発行した車両の精算を記録します。番号の編集・削除もここから行えます。</p></div><span className="section-count">{issuedRecords.length}件</span></div>{issuedRecords.length === 0 ? <EmptyState title="精算待ちの車両はありません" detail="証明書発行後の車両がここに表示されます。" /> : <div className="record-list">{issuedRecords.map((record) => <RecordRow key={record.id} record={record} now={now} action={settleRecord} actionLabel="精算" onNote={setNoteRecord} onEdit={openRecordEditor} onDelete={deleteRecord} />)}</div>}</section>}
-
-        {activeView === 'history' && <section className="view-section" aria-labelledby="history-heading"><div className="section-heading"><div><h1 id="history-heading">本日の履歴</h1><p>精算済みの記録を確認・修正できます。90秒以内の記録はまとめて報告できます。</p></div><div className="section-heading-actions"><span className="section-count">{settledRecords.length}件</span><button type="button" className="subtle-button danger history-clear-button" disabled={settledRecords.length === 0} onClick={() => setDeleteAllOpen(true)}><Icon name="trash" size={16} />履歴を全件削除</button></div></div><div className="line-tools"><div><strong>まとめ報告</strong><span>精算済み・90秒以内の記録をまとめます。コピー後もいつでも再生成できます。</span></div><button type="button" className="line-button" aria-label="LINE まとめて報告文を生成" onClick={generateLineText}><span className="line-mark">LINE</span>まとめて報告文を生成</button></div>{lineText && <div className="line-output"><div className="line-output-heading"><strong>生成されたテキスト</strong><button type="button" className="copy-button" onClick={copyLineText}><Icon name="copy" size={17} />コピー</button></div><textarea readOnly value={lineText} aria-label="LINE用テキスト" /></div>}{settledRecords.length === 0 ? <EmptyState title="完了した記録はありません" detail="精算ボタンを押した記録がここに表示されます。" /> : <div className="record-list history-list">{settledRecords.map((record) => <RecordRow key={record.id} record={record} now={now} onNote={setNoteRecord} onReport={setReportRecord} onEdit={openRecordEditor} onDelete={deleteRecord} />)}</div>}</section>}
+      {splitWorkspace ? <div className="workspace-grid">{['left', 'right'].map((side) => <WorkspacePane key={side} side={side} view={workspaceViews[side]} active={activePane === side} onActivate={() => { setActivePane(side); setActiveView(workspaceViews[side]) }} onSelect={(view) => { setActivePane(side); setWorkspaceViews((current) => ({ ...current, [side]: view })); setActiveView(view) }}>{renderOperationView(workspaceViews[side], side)}</WorkspacePane>)}</div> : activeView === 'work' ? <WorkReportView report={workReport} storeConfigs={storeConfigs} restartRule={restartRule} lineText={workLineText} onStorePatch={updateWorkStore} onSchedulePatch={updateWorkSchedule} onNotify={notify} onGenerate={generateWorkLineText} onCopy={copyWorkLineText} /> : renderOperationView(activeView)}
       </>}
     </main>
-    {activeStoreConfig && <><footer className="app-footer">端末内に自動保存中 · {todayKey}</footer><nav className={`mobile-bottom-nav ${isScrolling ? 'is-scrolling' : ''}`} aria-label="主要メニュー">{primaryTabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={activeView} onSelect={selectView} mobile />)}</nav></>}
+    {activeStoreConfig && <><footer className="app-footer">端末内に自動保存中 · {todayKey}</footer><nav className={`mobile-bottom-nav ${isScrolling ? 'is-scrolling' : ''}`} aria-label="主要メニュー">{primaryTabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={navigationView} onSelect={selectView} mobile />)}</nav></>}
     {noteRecord && <NoteSheet record={records.find((record) => record.id === noteRecord.id) || noteRecord} onSave={saveNotes} onClose={() => setNoteRecord(null)} />}
     {reportRecord && <ReportSheet record={records.find((record) => record.id === reportRecord.id) || reportRecord} onSave={saveReportSettings} onClose={() => setReportRecord(null)} />}
     {issueRecord && <SpotConfirmSheet record={records.find((record) => record.id === issueRecord.id) || issueRecord} parkingLayout={activeStoreConfig?.parkingLayout} onConfirm={confirmCertificateIssue} onClose={() => setIssueRecord(null)} />}

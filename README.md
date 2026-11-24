@@ -139,6 +139,8 @@ Xcodeでは`ios/App/App.xcodeproj`を開き、`App`スキームを実機また�
 
 このプロジェクトはCapacitorでAndroidアプリとしてパッケージできます。Android Studio、Android SDK、JDKがインストール済みの環境で実行してください。
 
+Android版のタブは画面下に固定されます。Foldの内側など広い画面では左右2画面になり、それぞれの選択欄から「駐車場」「精算待ち」「履歴」を選べます。左右で同じ画面を選ぶこともでき、スクロールは別々です。記録データは共通で、発行・精算・編集は両方へ反映されます。下のタブでは操作中の側の表示を切り替え、「左右を入れ替え」で配置を交換できます。組み合わせは端末内に保存され、カバー画面では従来の1画面表示に戻ります。勤務報告は日付欄から開けます。
+
 ### デバッグAPKを作る
 
 macOSでAndroid Studio付属のJDKを使う場合は、必要に応じて先に環境変数を設定します。
@@ -159,10 +161,10 @@ npm run android:debug
 生成物は以下です。
 
 ```text
-android/app/build/outputs/apk/debug/v0.1.23.apk
+android/app/build/outputs/apk/debug/v0.1.28.apk
 ```
 
-APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.24`にすると、`v0.1.24.apk`になります。
+APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.29`にすると、`v0.1.29.apk`になります。
 
 ### Androidのロック画面・システム通知
 
@@ -175,7 +177,7 @@ OPPOのAqua Dynamicsなど、通知を上部のシステム領域へ表示する
 Android端末へUSB接続してインストールする場合は、USBデバッグを有効にしてから以下を実行できます。
 
 ```bash
-adb install -r android/app/build/outputs/apk/debug/v0.1.23.apk
+adb install -r android/app/build/outputs/apk/debug/v0.1.28.apk
 ```
 
 ### Android Studioで開く
