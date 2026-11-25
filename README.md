@@ -137,7 +137,15 @@ Xcodeでは`ios/App/App.xcodeproj`を開き、`App`スキームを実機また�
 
 ## Android APK化
 
+Fold8向けの変更と確認状況は[作業記録](docs/fold8-checkpoint-2026-11-25.md)、Now barの検討中のUI案は[デザイン資料](docs/design/now-bar-2026-11-25/README.md)にまとめています。
+
 このプロジェクトはCapacitorでAndroidアプリとしてパッケージできます。Android Studio、Android SDK、JDKがインストール済みの環境で実行してください。
+
+Android版のタブは画面下に固定されます。Foldの内側など広い画面では左右2画面になり、それぞれの選択欄から「駐車場」「精算待ち」「履歴」を選べます。左右で同じ画面を選ぶこともでき、スクロールは別々です。記録データは共通で、発行・精算・編集は両方へ反映されます。下のタブでは操作中の側の表示を切り替え、「左右を入れ替え」で配置を交換できます。組み合わせは端末内に保存され、カバー画面では従来の1画面表示に戻ります。勤務報告は日付欄から開けます。
+
+広い画面の下タブは、片手で押しやすい小さなフローティングパネルにまとめています。「左へ／右へ」の矢印でパネルの位置だけを移し、表示中の内容・操作対象・記録は変わりません。操作対象はパネル上部に表示され、位置は端末内に保存されます。半透明の背景と移動アニメーションに対応し、動きを減らす設定では移動を即座に切り替えます。カバー画面のタブは従来どおりです。
+
+書体はヒラギノを優先し、Androidなどヒラギノのない端末では同梱のNoto Sans JPを使います。APKではオフラインでも同じ書体を表示できます。Noto Sans JPは[Google Fontsの配布元](https://github.com/google/fonts/tree/main/ofl/notosansjp)から取得し、[SIL Open Font License 1.1](public/fonts/NotoSansJP-OFL.txt)をAPKにも同梱しています。
 
 ### デバッグAPKを作る
 
@@ -159,23 +167,25 @@ npm run android:debug
 生成物は以下です。
 
 ```text
-android/app/build/outputs/apk/debug/v0.1.23.apk
+android/app/build/outputs/apk/debug/v0.1.31.apk
 ```
 
-APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.24`にすると、`v0.1.24.apk`になります。
+APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.32`にすると、`v0.1.32.apk`になります。
 
 ### Androidのロック画面・システム通知
 
 Android APKでは、駐車中または証明書発行済み・精算待ちの記録がある間、ネイティブの継続通知を表示します。駐車中は通知の経過時間が自動更新され、ロック画面からアプリを開けます。Android 13以降では、初回に通知の許可が必要です。
 
-OPPOのAqua Dynamicsなど、通知を上部のシステム領域へ表示するかどうかはColorOSと端末設定が決めます。アプリ側はAndroidのForeground Service、公開ロック画面通知、継続通知の昇格要求に対応していますが、すべての端末で同じ表示になるわけではありません。端末で「通知を許可」「ロック画面に表示」「通知をフローティング表示」などを有効にしてください。
+Android 16以降では、[Live Updatesの公式要件](https://developer.android.com/develop/ui/views/notifications/live-update)に沿って`POST_PROMOTED_NOTIFICATIONS`と昇格要求を宣言しています。駐車タイマーの動作中だけ昇格を要求し、1台なら経過時間、複数台なら「駐車N台」をコンパクト表示に渡します。証明書発行後の精算待ちは通常の継続通知へ戻します。ユーザーが閉じたタイマーは同じ記録の更新で再昇格させず、新しいタイマーを開始すると再び対象になります。
+
+Galaxyの[Now bar／ライブ通知](https://www.samsung.com/jp/support/mobile-devices/how-to-use-the-now-bar-on-the-lock-screen-of-your-samsung-galaxy-device/)やOPPOのAqua Dynamicsなど、通知を上部のシステム領域へ表示するかどうかはOne UI・ColorOSと端末設定が決めます。アプリ側はAndroidのForeground Service、公開ロック画面通知、継続通知の昇格要求に対応していますが、すべての端末で同じ表示になるわけではありません。端末で「通知を許可」「ロック画面に表示」「通知をフローティング表示」などを有効にしてください。
 
 この機能はAPK版のネイティブ機能です。Safari/Chromeからホーム画面に追加したPWAだけでは、OPPOのシステム領域やロック画面へタイマーを表示できません。
 
 Android端末へUSB接続してインストールする場合は、USBデバッグを有効にしてから以下を実行できます。
 
 ```bash
-adb install -r android/app/build/outputs/apk/debug/v0.1.23.apk
+adb install -r android/app/build/outputs/apk/debug/v0.1.31.apk
 ```
 
 ### Android Studioで開く

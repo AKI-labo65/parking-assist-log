@@ -5,7 +5,10 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
@@ -19,7 +22,10 @@ import org.json.JSONObject;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.TimeZone;
 
 public class ParkingNotificationService extends Service {
@@ -28,6 +34,20 @@ public class ParkingNotificationService extends Service {
 
     private static final String CHANNEL_ID = "parking-active";
     private static final int NOTIFICATION_ID = 6501;
+    static final String PREFERENCES = "parking-notification";
+    private static final String DISMISSED_TIMERS = "dismissed-timers";
+
+    public static class DismissReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            ArrayList<String> timerIds = intent.getStringArrayListExtra(DISMISSED_TIMERS);
+            if (timerIds == null) return;
+            SharedPreferences preferences = context.getSharedPreferences(PREFERENCES, MODE_PRIVATE);
+            Set<String> dismissed = new HashSet<>(preferences.getStringSet(DISMISSED_TIMERS, new HashSet<>()));
+            dismissed.addAll(timerIds);
+            preferences.edit().putStringSet(DISMISSED_TIMERS, dismissed).apply();
+        }
+    }
 
     @Override
     public void onCreate() {
@@ -81,7 +101,7 @@ public class ParkingNotificationService extends Service {
         }
     }
 
-    private Notification buildNotification(JSONArray records) {
+    Notification buildNotification(JSONArray records) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_parking)
                 .setContentIntent(openAppIntent())
@@ -117,12 +137,27 @@ public class ParkingNotificationService extends Service {
                     .setContentText(buildSummary(records));
         }
 
-        // Android 16+ can promote eligible ongoing notifications to a status chip.
-        // NotificationCompat keeps this call available on older Android versions.
-        try {
-            builder.getClass().getMethod("setRequestPromotedOngoing", boolean.class).invoke(builder, true);
-        } catch (Exception ignored) {
-            // The OEM or Android version may not support promoted notifications.
+        Set<String> timerIds = new HashSet<>();
+        for (int index = 0; index < records.length(); index++) {
+            JSONObject record = records.optJSONObject(index);
+            if (record == null || !"parking".equals(record.optString("status"))) continue;
+            timerIds.add(record.optString("id", record.optString("spot") + ":" + record.optString("startedAt")));
+        }
+        SharedPreferences preferences = getSharedPreferences(PREFERENCES, MODE_PRIVATE);
+        Set<String> dismissed = new HashSet<>(preferences.getStringSet(DISMISSED_TIMERS, new HashSet<>()));
+        // Do not re-promote a timer the user dismissed. A newly started timer can appear again.
+        if (records.length() > 0 && dismissed.retainAll(timerIds)) {
+            preferences.edit().putStringSet(DISMISSED_TIMERS, dismissed).apply();
+        }
+        Set<String> eligibleTimers = new HashSet<>(timerIds);
+        eligibleTimers.removeAll(dismissed);
+        builder.setRequestPromotedOngoing(!eligibleTimers.isEmpty());
+        if (!timerIds.isEmpty()) {
+            Intent dismiss = new Intent(this, DismissReceiver.class)
+                    .putStringArrayListExtra(DISMISSED_TIMERS, new ArrayList<>(timerIds));
+            builder.setDeleteIntent(PendingIntent.getBroadcast(this, 6502, dismiss,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+            if (records.length() > 1) builder.setShortCriticalText("駐車" + timerIds.size() + "台");
         }
         return builder.build();
     }

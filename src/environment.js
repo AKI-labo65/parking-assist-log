@@ -8,6 +8,8 @@ export function storageKeys(preview = IS_PREVIEW) {
     settings: `${prefix}-settings`,
     theme: `${prefix}-theme`,
     tutorial: `${prefix}-tutorial:v1`,
+    workspace: `${prefix}-workspace:v1`,
+    navigationSide: `${prefix}-navigation-side:v1`,
   }
 }
 
