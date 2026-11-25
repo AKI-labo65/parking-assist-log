@@ -197,4 +197,22 @@ describe('Fold workspace', () => {
     expect(screen.getByLabelText('右側の表示').value).toBe('issued')
     expect(JSON.parse(localStorage.getItem(`${STORAGE_KEYS.records}${getDateKey()}`))).toEqual([])
   })
+
+  it('switches between two and three panes and keeps the choice', () => {
+    prepareApp()
+    const { unmount } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '3画面' }))
+    expect(screen.getByLabelText('左側の表示').value).toBe('record')
+    expect(screen.getByLabelText('中央の表示').value).toBe('issued')
+    expect(screen.getByLabelText('右側の表示').value).toBe('history')
+    fireEvent.pointerDown(screen.getByRole('region', { name: '中央の画面' }))
+    expect(screen.getByText('中央の画面を切り替え')).not.toBeNull()
+    unmount()
+
+    render(<App />)
+    expect(screen.getByRole('region', { name: '中央の画面' })).not.toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '2画面' }))
+    expect(screen.queryByRole('region', { name: '中央の画面' })).toBeNull()
+    expect(screen.getByText('左側の画面を切り替え')).not.toBeNull()
+  })
 })

@@ -4,7 +4,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 import './styles.css'
 import { IS_PREVIEW, STORAGE_KEYS, hasSeenTutorial, rememberTutorial } from './environment.js'
 import { Tutorial, TutorialWelcome } from './Tutorial.jsx'
-import { WORKSPACE_OPTIONS, loadNavigationSide, loadWorkspaceViews, saveNavigationSide, saveWorkspaceViews } from './workspace.js'
+import { PANE_LABELS, WORKSPACE_OPTIONS, fillThreePaneViews, loadNavigationSide, loadPaneCount, loadWorkspaceViews, paneSides, saveNavigationSide, savePaneCount, saveWorkspaceViews } from './workspace.js'
 
 const ParkingLiveActivity = registerPlugin('ParkingLiveActivity')
 const ParkingNotification = registerPlugin('ParkingNotification')
@@ -680,7 +680,7 @@ function NavigationTab({ tab, activeView, onSelect, mobile = false }) {
 function HandedNavigation({ side, targetSide, tabs, activeView, onSelect, onMove }) {
   const selectedIndex = tabs.findIndex((tab) => tab.id === activeView)
   const moveLeft = side === 'right'
-  const targetLabel = targetSide ? `${targetSide === 'right' ? '右側' : '左側'}の画面を切り替え` : '画面を切り替え'
+  const targetLabel = targetSide ? `${PANE_LABELS[targetSide]}の画面を切り替え` : '画面を切り替え'
   return <nav className="mobile-bottom-nav handed-dock" data-dock-side={side} aria-label="主要メニュー" aria-describedby="handed-navigation-target">
     <div className="handed-dock-surface">
       <span className="handed-dock-target" id="handed-navigation-target" aria-live="polite" aria-atomic="true">{targetLabel}</span>
@@ -1087,12 +1087,31 @@ function useWideAndroidLayout() {
   return nativeAndroid && wide
 }
 
+// 3画面は横向きなど幅に余裕がある時だけ使う
+function useThreePaneCapable(enabled) {
+  const query = '(min-width: 900px)'
+  const [capable, setCapable] = useState(() => Boolean(window.matchMedia?.(query).matches))
+  useEffect(() => {
+    if (!enabled || !window.matchMedia) return undefined
+    const media = window.matchMedia(query)
+    const update = () => setCapable(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [enabled])
+  return enabled && capable
+}
+
+function PaneCountToggle({ count, onChange }) {
+  return <span className="pane-count-toggle" role="group" aria-label="画面の数">{[2, 3].map((value) => <button key={value} type="button" aria-pressed={count === value} className={count === value ? 'active' : ''} onClick={() => onChange(value)}>{value}画面</button>)}</span>
+}
+
 function WorkspacePane({ side, view, active, onSelect, onActivate, children }) {
   const scrollRef = useRef(null)
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0
   }, [view])
-  const sideLabel = side === 'left' ? '左側' : '右側'
+  const sideLabel = PANE_LABELS[side]
   return <section className={`workspace-pane${active ? ' is-active' : ''}`} aria-label={`${sideLabel}の画面`} onPointerDownCapture={onActivate} onFocusCapture={onActivate}>
     <header className="workspace-pane-header"><label><span>{sideLabel}</span><select aria-label={`${sideLabel}の表示`} value={view} onChange={(event) => onSelect(event.target.value)}>{WORKSPACE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>{active && <span className="workspace-pane-target">操作中</span>}</header>
     <div className="workspace-pane-content" ref={scrollRef}>{children}</div>
@@ -1118,8 +1137,10 @@ function HistoryView({ settledRecords, now, setDeleteAllOpen, generateLineText, 
 
 function App() {
   const wideAndroid = useWideAndroidLayout()
-  const [workspaceViews, setWorkspaceViews] = useState(loadWorkspaceViews)
+  const threePaneCapable = useThreePaneCapable(wideAndroid)
+  const [workspaceViews, setWorkspaceViews] = useState(() => loadPaneCount() === 3 ? fillThreePaneViews(loadWorkspaceViews()) : loadWorkspaceViews())
   const [activePane, setActivePane] = useState('left')
+  const [paneCountSetting, setPaneCountSetting] = useState(loadPaneCount)
   const [navigationSide, setNavigationSide] = useState(loadNavigationSide)
   const [todayKey, setTodayKey] = useState(() => getDateKey())
   const todayKeyRef = useRef(todayKey)
@@ -1158,6 +1179,10 @@ function App() {
   useEffect(() => {
     if (isNativeAndroid()) saveWorkspaceViews(workspaceViews)
   }, [workspaceViews])
+
+  useEffect(() => {
+    if (isNativeAndroid()) savePaneCount(paneCountSetting)
+  }, [paneCountSetting])
 
   useEffect(() => {
     if (isNativeAndroid()) saveNavigationSide(navigationSide)
@@ -1491,6 +1516,19 @@ function App() {
 
   const splitWorkspace = wideAndroid && Boolean(activeStoreConfig) && activeView !== 'work'
   const handedNavigation = wideAndroid && Boolean(activeStoreConfig)
+  const paneCount = threePaneCapable && paneCountSetting === 3 ? 3 : 2
+  const visibleSides = paneSides(paneCount)
+  useEffect(() => {
+    // 縦向きなどで3画面から2画面に戻った時、見えない中央を操作中のままにしない
+    if (splitWorkspace && !visibleSides.includes(activePane)) {
+      setActivePane('left')
+      setActiveView(workspaceViews.left)
+    }
+  }, [splitWorkspace, paneCount]) // eslint-disable-line react-hooks/exhaustive-deps
+  const changePaneCount = (count) => {
+    setPaneCountSetting(count)
+    if (count === 3) setWorkspaceViews((current) => fillThreePaneViews(current))
+  }
   const navigationView = splitWorkspace ? workspaceViews[activePane] : activeView
   const renderOperationView = (view, side) => {
     const headingId = side ? `${view}-${side}-heading` : `${view}-heading`
@@ -1500,15 +1538,15 @@ function App() {
     return null
   }
 
-  return <div className={`app-shell${isNativeAndroid() ? ' native-bottom-tabs' : ''}${splitWorkspace ? ' fold-workspace' : ''}${handedNavigation ? ' handed-navigation' : ''}${IS_PREVIEW ? ' is-preview' : ''}`}>
+  return <div className={`app-shell${isNativeAndroid() ? ' native-bottom-tabs' : ''}${splitWorkspace ? ' fold-workspace' : ''}${handedNavigation ? ' handed-navigation' : ''}${splitWorkspace && paneCount === 3 ? ' three-panes' : ''}${IS_PREVIEW ? ' is-preview' : ''}`}>
     {IS_PREVIEW && <aside className="preview-banner"><strong>テスト版</strong><span>本番の記録とは分かれています</span></aside>}
     <header className="app-header"><div className="brand-block"><div className="brand-mark"><span className="brand-dot" /><span>精算機補助</span></div>{activeStoreConfig && <button type="button" className="header-store-button" onClick={() => setStoreSelectorOpen(true)} aria-label={`${activeStoreConfig.label}・店舗を変更`}>{activeStoreConfig.label}<Icon name="arrow" size={14} /></button>}</div><div className="header-date">{formatDateLabel()}</div><div className="header-actions"><button type="button" className="theme-toggle" aria-pressed={theme === 'dark'} aria-label={theme === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え'} onClick={toggleTheme}><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} /><span>{theme === 'dark' ? 'ライト' : 'ダーク'}</span></button><button type="button" className="help-button tutorial-help-button" aria-label="使い方ガイドを開く" onClick={() => setTutorialState('tour')}>?</button><button type="button" className="icon-button settings-button" aria-label="店舗名設定を開く" onClick={() => setSettingsOpen(true)}>⚙</button></div></header>
     {activeStoreConfig && <nav className="tab-nav" aria-label="メインメニュー">{tabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={navigationView} onSelect={selectView} />)}</nav>}
     <main className={`main-content ${activeStoreConfig ? '' : 'start-main-content'}`}>
       {!activeStoreConfig ? <StoreStartView dateLabel={formatDateLabel()} options={operationStoreOptions} onSelect={selectOperationStore} /> : <>
-      <div className="day-banner"><span><Icon name="clock" size={18} />本日 {formatDateLabel()}{splitWorkspace && <span className="workspace-badge">2画面</span>}</span><div className="day-banner-actions">{splitWorkspace && <button type="button" className="workspace-swap" onClick={() => setWorkspaceViews((current) => ({ left: current.right, right: current.left }))}>左右を入れ替え</button>}<button type="button" onClick={() => { setRecords(loadRecords(todayKey)); setWorkReport(loadWorkReport(todayKey)); notify('保存データを読み込みました') }}><Icon name="refresh" size={17} />更新</button><button type="button" className={`secondary-nav-button ${activeView === 'work' ? 'active' : ''}`} onClick={() => selectView('work')}><Icon name="note" size={15} />勤務報告</button></div></div>
+      <div className="day-banner"><span><Icon name="clock" size={18} />本日 {formatDateLabel()}{splitWorkspace && (threePaneCapable ? <PaneCountToggle count={paneCount} onChange={changePaneCount} /> : <span className="workspace-badge">2画面</span>)}</span><div className="day-banner-actions">{splitWorkspace && <button type="button" className="workspace-swap" onClick={() => setWorkspaceViews((current) => ({ left: current.right, right: current.left }))}>左右を入れ替え</button>}<button type="button" onClick={() => { setRecords(loadRecords(todayKey)); setWorkReport(loadWorkReport(todayKey)); notify('保存データを読み込みました') }}><Icon name="refresh" size={17} />更新</button><button type="button" className={`secondary-nav-button ${activeView === 'work' ? 'active' : ''}`} onClick={() => selectView('work')}><Icon name="note" size={15} />勤務報告</button></div></div>
 
-      {splitWorkspace ? <div className="workspace-grid" data-dock-side={handedNavigation ? navigationSide : undefined}>{['left', 'right'].map((side) => <WorkspacePane key={side} side={side} view={workspaceViews[side]} active={activePane === side} onActivate={() => { setActivePane(side); setActiveView(workspaceViews[side]) }} onSelect={(view) => { setActivePane(side); setWorkspaceViews((current) => ({ ...current, [side]: view })); setActiveView(view) }}>{renderOperationView(workspaceViews[side], side)}</WorkspacePane>)}</div> : activeView === 'work' ? <WorkReportView report={workReport} storeConfigs={storeConfigs} restartRule={restartRule} lineText={workLineText} onStorePatch={updateWorkStore} onSchedulePatch={updateWorkSchedule} onNotify={notify} onGenerate={generateWorkLineText} onCopy={copyWorkLineText} /> : renderOperationView(activeView)}
+      {splitWorkspace ? <div className="workspace-grid" data-pane-count={paneCount} style={paneCount === 3 ? { gridTemplateColumns: visibleSides.map((side) => workspaceViews[side] === 'record' ? 'minmax(0, 1.6fr)' : 'minmax(0, 1fr)').join(' ') } : undefined} data-dock-side={handedNavigation ? navigationSide : undefined}>{visibleSides.map((side) => <WorkspacePane key={side} side={side} view={workspaceViews[side]} active={activePane === side} onActivate={() => { setActivePane(side); setActiveView(workspaceViews[side]) }} onSelect={(view) => { setActivePane(side); setWorkspaceViews((current) => ({ ...current, [side]: view })); setActiveView(view) }}>{renderOperationView(workspaceViews[side], side)}</WorkspacePane>)}</div> : activeView === 'work' ? <WorkReportView report={workReport} storeConfigs={storeConfigs} restartRule={restartRule} lineText={workLineText} onStorePatch={updateWorkStore} onSchedulePatch={updateWorkSchedule} onNotify={notify} onGenerate={generateWorkLineText} onCopy={copyWorkLineText} /> : renderOperationView(activeView)}
       </>}
     </main>
     {activeStoreConfig && <><footer className="app-footer">端末内に自動保存中 · {todayKey}</footer>{handedNavigation ? <HandedNavigation side={navigationSide} targetSide={splitWorkspace ? activePane : null} tabs={primaryTabItems} activeView={navigationView} onSelect={selectView} onMove={() => setNavigationSide((current) => current === 'right' ? 'left' : 'right')} /> : <nav className={`mobile-bottom-nav ${isScrolling ? 'is-scrolling' : ''}`} aria-label="主要メニュー">{primaryTabItems.map((tab) => <NavigationTab key={tab.id} tab={tab} activeView={navigationView} onSelect={selectView} mobile />)}</nav>}</>}

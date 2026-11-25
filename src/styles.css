@@ -585,6 +585,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .workspace-pane .issue-button { font-size: 12px; }
   .workspace-pane .issue-button svg { display: none; }
 }
+@container (max-width: 290px) {
+  .workspace-pane .active-actions { flex-wrap: wrap; }
+  .workspace-pane .issue-button { flex-basis: 100%; }
+  .workspace-pane .active-more-actions { flex: 1; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .workspace-pane .record-row { padding: 12px; border-radius: 16px; }
 .workspace-pane .row-main { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; }
 .workspace-pane .row-main > .action-button { grid-column: 1 / -1; width: 100%; min-height: 44px; }
@@ -696,6 +701,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .handed-navigation .main-content { padding-bottom: calc(104px + var(--dock-safe-bottom)); }
 .handed-navigation .app-footer { padding-bottom: calc(112px + var(--dock-safe-bottom)); }
 .handed-navigation .toast { bottom: calc(108px + var(--dock-safe-bottom)); }
+/* 2画面・3画面の切り替え */
+.pane-count-toggle { display: inline-flex; margin-left: 4px; padding: 2px; border-radius: 8px; background: var(--surface-container); }
+.pane-count-toggle button { min-height: 36px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; transition: background .18s var(--motion-standard), color .18s var(--motion-standard); }
+.pane-count-toggle button.active { background: var(--surface); color: var(--navy); box-shadow: 0 1px 3px rgba(27, 47, 76, .14); }
+.workspace-grid[data-pane-count='3'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.three-panes.handed-navigation .handed-dock { --dock-width: min(316px, calc((100vw - 48px) / 3)); }
+.three-panes .handed-dock .mobile-tab { font-size: 10px; }
+.workspace-pane-content { container-type: inline-size; }
+@container (max-width: 280px) {
+  .workspace-pane .section-heading { flex-direction: column; }
+  .workspace-pane .section-heading h1 { white-space: nowrap; }
+}
 /* 2画面では下タブがある側の画面だけ下を空け、反対側は画面下まで使う */
 .fold-workspace.handed-navigation .main-content { padding-bottom: calc(12px + var(--dock-safe-bottom)); }
 .fold-workspace .workspace-grid[data-dock-side] > .workspace-pane { transition: margin-bottom 420ms cubic-bezier(.22, .85, .2, 1); }
