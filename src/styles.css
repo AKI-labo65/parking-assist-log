@@ -100,6 +100,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .mobile-bottom-nav button.active { background: transparent; color: var(--navy); }
 .mobile-tab .icon { width: 24px; height: 24px; padding: 4px; box-sizing: content-box; border-radius: 999px; }
 .mobile-tab.active .icon { background: var(--blue-pale); color: var(--navy); }
+/* カバー画面の下タブも、選択の丸を選んだタブへ滑らせる */
+.mobile-bottom-nav > .mobile-tab { z-index: 1; justify-content: flex-start; padding-top: 14px; transition: color 180ms ease, transform 150ms ease; -webkit-tap-highlight-color: transparent; }
+.mobile-bottom-nav > .mobile-tab:active { transform: scale(.94); }
+.mobile-bottom-nav > .mobile-tab.active .icon { background: transparent; }
+.mobile-tab-indicator { position: absolute; top: 14px; left: 0; width: calc(100% / 3); height: 32px; display: flex; justify-content: center; transform: translate3d(calc(var(--selected-index) * 100%), 0, 0); transition: transform 260ms cubic-bezier(.2, .8, .2, 1), opacity 160ms ease; pointer-events: none; }
+.mobile-tab-indicator > span { width: 56px; height: 32px; border-radius: 999px; background: var(--blue-pale); }
+.mobile-tab-indicator.is-hidden { opacity: 0; }
+.handed-dock .mobile-tab-indicator { display: none; }
+@media (prefers-reduced-motion: reduce) { .mobile-tab-indicator { transition: none; } }
 .mobile-tab-count { position: absolute; top: 4px; right: calc(50% - 29px); min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; border-radius: 99px; background: #ef6c5f; color: white; font-size: 10px; line-height: 1; }
 
 .main-content { max-width: 920px; margin: 0 auto; padding: 0 24px 40px; }
