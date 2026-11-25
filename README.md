@@ -141,6 +141,8 @@ Xcodeでは`ios/App/App.xcodeproj`を開き、`App`スキームを実機また�
 
 Android版のタブは画面下に固定されます。Foldの内側など広い画面では左右2画面になり、それぞれの選択欄から「駐車場」「精算待ち」「履歴」を選べます。左右で同じ画面を選ぶこともでき、スクロールは別々です。記録データは共通で、発行・精算・編集は両方へ反映されます。下のタブでは操作中の側の表示を切り替え、「左右を入れ替え」で配置を交換できます。組み合わせは端末内に保存され、カバー画面では従来の1画面表示に戻ります。勤務報告は日付欄から開けます。
 
+広い画面の下タブは、片手で押しやすい小さなフローティングパネルにまとめています。「左へ／右へ」の矢印でパネルの位置だけを移し、表示中の内容・操作対象・記録は変わりません。操作対象はパネル上部に表示され、位置は端末内に保存されます。半透明の背景と移動アニメーションに対応し、動きを減らす設定では移動を即座に切り替えます。カバー画面のタブは従来どおりです。
+
 書体はヒラギノを優先し、Androidなどヒラギノのない端末では同梱のNoto Sans JPを使います。APKではオフラインでも同じ書体を表示できます。Noto Sans JPは[Google Fontsの配布元](https://github.com/google/fonts/tree/main/ofl/notosansjp)から取得し、[SIL Open Font License 1.1](public/fonts/NotoSansJP-OFL.txt)をAPKにも同梱しています。
 
 ### デバッグAPKを作る
@@ -163,10 +165,10 @@ npm run android:debug
 生成物は以下です。
 
 ```text
-android/app/build/outputs/apk/debug/v0.1.29.apk
+android/app/build/outputs/apk/debug/v0.1.30.apk
 ```
 
-APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.30`にすると、`v0.1.30.apk`になります。
+APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.31`にすると、`v0.1.31.apk`になります。
 
 ### Androidのロック画面・システム通知
 
@@ -179,7 +181,7 @@ OPPOのAqua Dynamicsなど、通知を上部のシステム領域へ表示する
 Android端末へUSB接続してインストールする場合は、USBデバッグを有効にしてから以下を実行できます。
 
 ```bash
-adb install -r android/app/build/outputs/apk/debug/v0.1.29.apk
+adb install -r android/app/build/outputs/apk/debug/v0.1.30.apk
 ```
 
 ### Android Studioで開く

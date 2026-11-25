@@ -27,3 +27,19 @@ export function saveWorkspaceViews(views) {
     // Pane selection remains usable when browser storage is unavailable.
   }
 }
+
+export function loadNavigationSide() {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.navigationSide) === 'left' ? 'left' : 'right'
+  } catch {
+    return 'right'
+  }
+}
+
+export function saveNavigationSide(side) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.navigationSide, side)
+  } catch {
+    // Moving the navigation remains available without persistent storage.
+  }
+}
