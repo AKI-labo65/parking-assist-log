@@ -6,7 +6,7 @@ export const WORKSPACE_OPTIONS = [
   { id: 'history', label: '履歴' },
 ]
 
-const DEFAULT_VIEWS = { left: 'record', center: 'issued', right: 'issued' }
+const DEFAULT_VIEWS = { left: 'record', right: 'issued' }
 
 export const PANE_LABELS = { left: '左側', center: '中央', right: '右側' }
 
@@ -14,13 +14,8 @@ export function paneSides(count) {
   return count === 3 ? ['left', 'center', 'right'] : ['left', 'right']
 }
 
-// 3画面に切り替えた時、同じ表示が重なっていれば空いている表示で埋める
-export function fillThreePaneViews(views) {
-  if (new Set([views.left, views.center, views.right]).size === 3) return views
-  const center = views.right
-  const right = WORKSPACE_OPTIONS.find((option) => option.id !== views.left && option.id !== center)?.id || views.right
-  return { ...views, center, right }
-}
+// 3画面は左から駐車場・精算待ち・履歴で固定する
+export const THREE_PANE_VIEWS = { left: 'record', center: 'issued', right: 'history' }
 
 export function loadWorkspaceViews() {
   try {

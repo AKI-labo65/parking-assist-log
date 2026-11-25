@@ -538,6 +538,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .workspace-pane-header label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
 .workspace-pane-header label > span { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .workspace-pane-header select { min-width: 0; min-height: 44px; flex: 1; padding: 4px 20px 4px 4px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font-size: 15px; font-weight: 600; }
+.workspace-pane-title { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 10px; }
+.workspace-pane-title > span { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.workspace-pane-title > strong { color: var(--ink); font-size: 15px; font-weight: 600; }
 .workspace-pane-target { color: var(--navy); font-size: 10px; white-space: nowrap; }
 .workspace-pane-content { flex: 1; min-height: 0; padding: 12px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; }
 .workspace-pane .view-section { padding-bottom: 12px; }
