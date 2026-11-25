@@ -10,6 +10,7 @@ export function storageKeys(preview = IS_PREVIEW) {
     tutorial: `${prefix}-tutorial:v1`,
     workspace: `${prefix}-workspace:v1`,
     navigationSide: `${prefix}-navigation-side:v1`,
+    paneCount: `${prefix}-pane-count:v1`,
   }
 }
 

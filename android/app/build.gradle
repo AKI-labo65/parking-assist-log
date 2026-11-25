@@ -7,8 +7,8 @@ android {
         applicationId "com.akitokosumoto.parkingassist"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 30
-        versionName "0.1.31"
+        versionCode 36
+        versionName "0.1.37"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -17,6 +17,10 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // 実機テストは別のアプリIDで入れ、本番の記録を消さない（-PqaApplicationIdSuffix=.qa）。
+            if (project.hasProperty('qaApplicationIdSuffix')) applicationIdSuffix project.qaApplicationIdSuffix
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
