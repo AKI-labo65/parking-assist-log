@@ -113,28 +113,43 @@ public class ParkingNotificationService extends Service {
                 .setShowWhen(false)
                 .setContentTitle("精算機補助");
 
-        if (records.length() == 1) {
-            JSONObject record = records.optJSONObject(0);
-            if (record != null) {
-                String status = record.optString("status", "parking");
-                String spot = record.optString("spot", "");
-                String spotLabel = spot.isEmpty() ? "番号未入力" : spot + "番";
+        // Now bar: one timer shows its elapsed time, several timers show the count (design notes 1 and 3).
+        ArrayList<JSONObject> parking = new ArrayList<>();
+        ArrayList<JSONObject> issued = new ArrayList<>();
+        for (int index = 0; index < records.length(); index++) {
+            JSONObject record = records.optJSONObject(index);
+            if (record == null) continue;
+            if ("parking".equals(record.optString("status", "parking"))) parking.add(record);
+            else if ("issued".equals(record.optString("status"))) issued.add(record);
+        }
+        String waitingText = issued.isEmpty() ? "" : "精算待ち " + issued.size() + "台";
 
-                if ("parking".equals(status)) {
-                    builder.setContentTitle(spotLabel + "・駐車中")
-                            .setContentText("証明書発行までの経過時間")
-                            .setShowWhen(true)
-                            .setUsesChronometer(true)
-                            .setWhen(parseIsoMillis(record.optString("startedAt", "")));
-                } else {
-                    builder.setContentTitle(spotLabel + "・証明書発行済み")
-                            .setContentText("精算待ち")
-                            .setShowWhen(false);
-                }
+        if (parking.size() == 1) {
+            JSONObject record = parking.get(0);
+            long startedAt = parseIsoMillis(record.optString("startedAt", ""));
+            builder.setContentTitle(spotLabel(record) + "・駐車中")
+                    .setContentText("入庫 " + formatClock(startedAt) + "・証明書発行までの経過時間")
+                    .setShowWhen(true)
+                    .setUsesChronometer(true)
+                    .setWhen(startedAt);
+            if (!waitingText.isEmpty()) builder.setSubText(waitingText);
+        } else if (parking.size() > 1) {
+            StringBuilder lines = new StringBuilder();
+            for (JSONObject record : parking) {
+                if (lines.length() > 0) lines.append('\n');
+                lines.append(spotLabel(record)).append("　入庫 ")
+                        .append(formatClock(parseIsoMillis(record.optString("startedAt", ""))));
             }
-        } else {
-            builder.setContentTitle("精算機補助・対応中")
-                    .setContentText(buildSummary(records));
+            if (!waitingText.isEmpty()) lines.append('\n').append(waitingText);
+            builder.setContentTitle("駐車中 " + parking.size() + "台")
+                    .setContentText(joinSpots(parking) + (waitingText.isEmpty() ? "" : "／" + waitingText))
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(lines));
+        } else if (issued.size() == 1) {
+            builder.setContentTitle(spotLabel(issued.get(0)) + "・証明書発行済み")
+                    .setContentText("精算待ち");
+        } else if (!issued.isEmpty()) {
+            builder.setContentTitle(waitingText)
+                    .setContentText(joinSpots(issued));
         }
 
         Set<String> timerIds = new HashSet<>();
@@ -157,38 +172,27 @@ public class ParkingNotificationService extends Service {
                     .putStringArrayListExtra(DISMISSED_TIMERS, new ArrayList<>(timerIds));
             builder.setDeleteIntent(PendingIntent.getBroadcast(this, 6502, dismiss,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-            if (records.length() > 1) builder.setShortCriticalText("駐車" + timerIds.size() + "台");
+            if (timerIds.size() > 1) builder.setShortCriticalText("駐車" + timerIds.size() + "台");
         }
         return builder.build();
     }
 
-    private String buildSummary(JSONArray records) {
-        int parkingCount = 0;
-        int issuedCount = 0;
-        StringBuilder spots = new StringBuilder();
-        for (int index = 0; index < records.length(); index++) {
-            JSONObject record = records.optJSONObject(index);
-            if (record == null) continue;
-            if ("parking".equals(record.optString("status"))) parkingCount++;
-            if ("issued".equals(record.optString("status"))) issuedCount++;
-            String spot = record.optString("spot", "");
-            if (!spot.isEmpty()) {
-                if (spots.length() > 0) spots.append('・');
-                spots.append(spot).append('番');
-            }
-        }
+    private static String spotLabel(JSONObject record) {
+        String spot = record.optString("spot", "");
+        return spot.isEmpty() ? "番号未入力" : spot + "番";
+    }
 
-        StringBuilder summary = new StringBuilder();
-        if (parkingCount > 0) summary.append("駐車中 ").append(parkingCount).append("件");
-        if (issuedCount > 0) {
-            if (summary.length() > 0) summary.append(" / ");
-            summary.append("精算待ち ").append(issuedCount).append("件");
+    private static String joinSpots(ArrayList<JSONObject> records) {
+        StringBuilder spots = new StringBuilder();
+        for (JSONObject record : records) {
+            if (spots.length() > 0) spots.append('・');
+            spots.append(spotLabel(record));
         }
-        if (spots.length() > 0) {
-            if (summary.length() > 0) summary.append("：");
-            summary.append(spots);
-        }
-        return summary.length() == 0 ? "対応中の記録があります" : summary.toString();
+        return spots.toString();
+    }
+
+    private static String formatClock(long millis) {
+        return new SimpleDateFormat("H:mm", Locale.JAPAN).format(new Date(millis));
     }
 
     private PendingIntent openAppIntent() {

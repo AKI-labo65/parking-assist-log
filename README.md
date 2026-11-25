@@ -167,25 +167,25 @@ npm run android:debug
 生成物は以下です。
 
 ```text
-android/app/build/outputs/apk/debug/v0.1.31.apk
+android/app/build/outputs/apk/debug/v0.1.32.apk
 ```
 
-APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.32`にすると、`v0.1.32.apk`になります。
+APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.33`にすると、`v0.1.33.apk`になります。
 
 ### Androidのロック画面・システム通知
 
 Android APKでは、駐車中または証明書発行済み・精算待ちの記録がある間、ネイティブの継続通知を表示します。駐車中は通知の経過時間が自動更新され、ロック画面からアプリを開けます。Android 13以降では、初回に通知の許可が必要です。
 
-Android 16以降では、[Live Updatesの公式要件](https://developer.android.com/develop/ui/views/notifications/live-update)に沿って`POST_PROMOTED_NOTIFICATIONS`と昇格要求を宣言しています。駐車タイマーの動作中だけ昇格を要求し、1台なら経過時間、複数台なら「駐車N台」をコンパクト表示に渡します。証明書発行後の精算待ちは通常の継続通知へ戻します。ユーザーが閉じたタイマーは同じ記録の更新で再昇格させず、新しいタイマーを開始すると再び対象になります。
+Android 16以降では、[Live Updatesの公式要件](https://developer.android.com/develop/ui/views/notifications/live-update)に沿って`POST_PROMOTED_NOTIFICATIONS`と昇格要求を宣言しています。駐車タイマーの動作中だけ昇格を要求します。1台なら番号・入庫時刻と経過時間を出し、精算待ちがあれば台数を添えます。複数台ならコンパクト表示に「駐車N台」を渡し、通知を広げると番号と入庫時刻を一覧で出します。証明書発行後の精算待ちは通常の継続通知へ戻します。ユーザーが閉じたタイマーは同じ記録の更新で再昇格させず、新しいタイマーを開始すると再び対象になります。
 
 Galaxyの[Now bar／ライブ通知](https://www.samsung.com/jp/support/mobile-devices/how-to-use-the-now-bar-on-the-lock-screen-of-your-samsung-galaxy-device/)やOPPOのAqua Dynamicsなど、通知を上部のシステム領域へ表示するかどうかはOne UI・ColorOSと端末設定が決めます。アプリ側はAndroidのForeground Service、公開ロック画面通知、継続通知の昇格要求に対応していますが、すべての端末で同じ表示になるわけではありません。端末で「通知を許可」「ロック画面に表示」「通知をフローティング表示」などを有効にしてください。
 
 この機能はAPK版のネイティブ機能です。Safari/Chromeからホーム画面に追加したPWAだけでは、OPPOのシステム領域やロック画面へタイマーを表示できません。
 
-Android端末へUSB接続してインストールする場合は、USBデバッグを有効にしてから以下を実行できます。
+Android端末へUSB接続してインストールする場合は、USBデバッグを有効にしてから以下を実行できます。通知の実機テストは、本番の記録を消さないよう別のアプリIDで実行します（`./gradlew connectedDebugAndroidTest -PqaApplicationIdSuffix=.qa`）。
 
 ```bash
-adb install -r android/app/build/outputs/apk/debug/v0.1.31.apk
+adb install -r android/app/build/outputs/apk/debug/v0.1.32.apk
 ```
 
 ### Android Studioで開く

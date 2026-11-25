@@ -132,6 +132,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .active-time { display: flex; align-items: baseline; gap: 7px; font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .active-time small { font-size: 14px; }
 .active-time span { color: #aabbdc; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+.active-limit { margin-top: 2px; color: #aabbdc; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.active-limit.over { color: #ffd27a; }
+.active-record.is-over-limit { background: rgba(255, 196, 90, .1); box-shadow: inset 4px 0 0 #f0b545; }
 .entry-time-link { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 2px 4px; margin: -2px -4px; border: 0; border-radius: 6px; background: transparent; color: inherit; font-size: inherit; font-variant-numeric: tabular-nums; }
 .entry-time-link time { font-size: 15px; font-weight: 600; white-space: nowrap; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; }
 .entry-time-link:hover { background: var(--blue-pale); }
@@ -558,12 +561,30 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .workspace-pane .sugie-parking-layout .spot-button strong { font-size: 17px; }
 .workspace-pane .active-panel { margin-bottom: 12px; border-radius: 16px; }
 .workspace-pane .active-panel-heading { padding: 10px 12px; font-size: 11px; }
-.workspace-pane .active-record { align-items: stretch; flex-direction: column; padding: 14px 12px; gap: 10px; }
-.workspace-pane .active-summary { justify-content: space-between; }
-.workspace-pane .active-summary > strong { font-size: 36px; }
-.workspace-pane .active-summary > strong.unknown { font-size: 26px; }
-.workspace-pane .active-actions { min-width: 0; }
-.workspace-pane .issue-button { min-height: 48px; font-size: 13px; }
+/* 2画面では駐車中カードを詰め、駐車場の番号一覧を見渡せるようにする */
+.workspace-pane .active-record { align-items: stretch; flex-direction: column; padding: 10px 12px; gap: 8px; }
+.workspace-pane .active-summary { justify-content: flex-start; gap: 12px; }
+.workspace-pane .active-summary > strong { min-width: 64px; font-size: 32px; }
+.workspace-pane .active-summary > strong.unknown { font-size: 16px; white-space: nowrap; }
+.workspace-pane .active-summary > div { display: grid; grid-template-columns: auto auto; align-items: baseline; column-gap: 10px; row-gap: 0; }
+.workspace-pane .active-summary .status-badge { display: none; }
+.workspace-pane .active-time { font-size: 22px; gap: 5px; }
+.workspace-pane .active-time span { font-size: 11px; }
+.workspace-pane .active-limit { grid-column: 1; margin-top: 0; font-size: 11px; }
+.workspace-pane .active-entry-time { grid-column: 2; grid-row: 1 / span 2; align-self: center; min-height: 40px; }
+.workspace-pane .active-actions { min-width: 0; flex-direction: row; gap: 6px; }
+.workspace-pane .issue-button { flex: 1; min-width: 0; min-height: 44px; font-size: 13px; }
+.workspace-pane .active-more-actions { grid-template-columns: repeat(3, 44px); gap: 4px; }
+.workspace-pane .active-more-actions .note-button { min-height: 44px; padding: 0; font-size: 0; gap: 0; }
+.workspace-pane .active-entry-time span, .workspace-pane .issue-button span { white-space: nowrap; }
+.workspace-pane .active-summary > strong.unknown { max-width: 84px; }
+.workspace-pane .active-panel { container-type: inline-size; }
+@container (max-width: 340px) {
+  .workspace-pane .active-summary > div { grid-template-columns: auto; }
+  .workspace-pane .active-entry-time { grid-column: 1; grid-row: auto; min-height: 32px; }
+  .workspace-pane .issue-button { font-size: 12px; }
+  .workspace-pane .issue-button svg { display: none; }
+}
 .workspace-pane .record-row { padding: 12px; border-radius: 16px; }
 .workspace-pane .row-main { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; }
 .workspace-pane .row-main > .action-button { grid-column: 1 / -1; width: 100%; min-height: 44px; }

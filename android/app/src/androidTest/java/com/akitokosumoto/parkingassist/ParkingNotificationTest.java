@@ -82,6 +82,29 @@ public class ParkingNotificationTest {
     }
 
     @Test
+    public void oneTimerWithWaitingCarKeepsTheElapsedTime() throws Exception {
+        assumeTrue(Build.VERSION.SDK_INT >= 36);
+        JSONArray records = parking("a");
+        records.put(new org.json.JSONObject().put("id", "b").put("spot", "8").put("status", "issued"));
+        Notification notification = service.buildNotification(records);
+        assertTrue(notification.hasPromotableCharacteristics());
+        assertTrue(notification.extras.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER));
+        assertNull(NotificationCompat.getShortCriticalText(notification));
+        assertEquals("15番・駐車中", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString());
+        assertEquals("精算待ち 1台", notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString());
+    }
+
+    @Test
+    public void multipleTimersListEachSpotWhenExpanded() throws Exception {
+        assumeTrue(Build.VERSION.SDK_INT >= 36);
+        Notification notification = service.buildNotification(parking("a,b"));
+        assertEquals("駐車中 2台", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString());
+        String expanded = notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString();
+        assertEquals(2, expanded.split("\n").length);
+        assertTrue(expanded.startsWith("15番　入庫 "));
+    }
+
+    @Test
     public void dismissalStaysRespectedUntilAnotherTimerStarts() throws Exception {
         assumeTrue(Build.VERSION.SDK_INT >= 36);
         SharedPreferences preferences = context.getSharedPreferences(ParkingNotificationService.PREFERENCES, Context.MODE_PRIVATE);

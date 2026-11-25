@@ -108,6 +108,15 @@ describe('parking entry times', () => {
     expect(screen.getByRole('button', { name: '番号未入力 #1の入庫時間を修正' })).not.toBeNull()
   })
 
+  it('shows the time left before 90 seconds and the overrun after it', () => {
+    openApp()
+    fireEvent.click(screen.getByRole('button', { name: '1番・新しく記録開始', exact: true }))
+    expect(screen.getByText('90秒まであと90秒')).not.toBeNull()
+
+    act(() => { vi.advanceTimersByTime(95_000) })
+    expect(screen.getByText('90秒を5秒超過')).not.toBeNull()
+  })
+
   it('keeps the entry time through spot confirmation, issuance, settlement, and reload', () => {
     const view = openApp()
     fireEvent.click(screen.getByRole('button', { name: '1番・新しく記録開始', exact: true }))
