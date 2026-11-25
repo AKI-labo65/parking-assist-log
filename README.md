@@ -167,10 +167,10 @@ npm run android:debug
 生成物は以下です。
 
 ```text
-android/app/build/outputs/apk/debug/v0.1.34.apk
+android/app/build/outputs/apk/debug/v0.1.35.apk
 ```
 
-APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.35`にすると、`v0.1.35.apk`になります。
+APK名はAndroidの`versionName`から自動生成されます。次回バージョンを`0.1.36`にすると、`v0.1.36.apk`になります。
 
 ### Androidのロック画面・システム通知
 
@@ -185,7 +185,7 @@ Galaxyの[Now bar／ライブ通知](https://www.samsung.com/jp/support/mobile-d
 Android端末へUSB接続してインストールする場合は、USBデバッグを有効にしてから以下を実行できます。通知の実機テストは、本番の記録を消さないよう別のアプリIDで実行します（`./gradlew connectedDebugAndroidTest -PqaApplicationIdSuffix=.qa`）。
 
 ```bash
-adb install -r android/app/build/outputs/apk/debug/v0.1.34.apk
+adb install -r android/app/build/outputs/apk/debug/v0.1.35.apk
 ```
 
 ### Android Studioで開く
